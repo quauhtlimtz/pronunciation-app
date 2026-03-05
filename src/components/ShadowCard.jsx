@@ -28,72 +28,64 @@ function pickMimeType() {
 
 function LiveWaveform({ stream }) {
   const canvasRef = useRef(null);
-  const stateRef = useRef(null);
 
   useEffect(() => {
     if (!stream) return;
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === "suspended") ctx.resume();
+
     const source = ctx.createMediaStreamSource(stream);
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 256;
-    analyser.smoothingTimeConstant = 0.3;
     source.connect(analyser);
-    // Also add a GainNode to amplify the signal for visualization
-    const gainNode = ctx.createGain();
-    gainNode.gain.value = 3;
-    source.connect(gainNode);
-    gainNode.connect(analyser);
+    // Don't connect to ctx.destination — visualization only, no audio output
 
     const data = new Uint8Array(analyser.frequencyBinCount);
     let raf;
-    let sized = false;
-
-    if (ctx.state === "suspended") ctx.resume();
+    let w = 0, h = 0;
 
     function draw() {
       const canvas = canvasRef.current;
       if (!canvas) { raf = requestAnimationFrame(draw); return; }
 
-      if (!sized) {
+      // Size canvas once (or on resize)
+      const cw = canvas.clientWidth, ch = canvas.clientHeight;
+      if (cw !== w || ch !== h) {
         const dpr = window.devicePixelRatio || 1;
-        canvas.width = canvas.clientWidth * dpr;
-        canvas.height = canvas.clientHeight * dpr;
-        sized = true;
+        canvas.width = cw * dpr;
+        canvas.height = ch * dpr;
+        w = cw; h = ch;
       }
 
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
       const dpr = window.devicePixelRatio || 1;
       const gfx = canvas.getContext("2d");
       gfx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
       analyser.getByteTimeDomainData(data);
+
+      // Find peak to auto-scale (128 samples, trivial cost)
+      let peak = 1;
+      for (let i = 0; i < data.length; i++) {
+        const d = Math.abs(data[i] - 128);
+        if (d > peak) peak = d;
+      }
+      const gain = Math.min(80 / peak, 6);
 
       gfx.clearRect(0, 0, w, h);
       gfx.beginPath();
       gfx.strokeStyle = "#d97706";
       gfx.lineWidth = 1.5;
-
       const step = w / data.length;
       for (let i = 0; i < data.length; i++) {
-        const v = (data[i] - 128) / 128; // -1 to 1
+        const v = ((data[i] - 128) * gain) / 128;
         const y = (1 - v) * h / 2;
-        if (i === 0) gfx.moveTo(0, y);
-        else gfx.lineTo(i * step, y);
+        if (i === 0) gfx.moveTo(0, y); else gfx.lineTo(i * step, y);
       }
       gfx.stroke();
       raf = requestAnimationFrame(draw);
     }
 
     raf = requestAnimationFrame(draw);
-    stateRef.current = { ctx, source, gainNode };
-
-    return () => {
-      cancelAnimationFrame(raf);
-      source.disconnect();
-      gainNode.disconnect();
-      ctx.close();
-    };
+    return () => { cancelAnimationFrame(raf); source.disconnect(); ctx.close(); };
   }, [stream]);
 
   return <canvas ref={canvasRef} className="w-full rounded-md" style={{ height: 48 }} />;
@@ -201,7 +193,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
         stream.getTracks().forEach(t => t.stop());
         streamRef.current = null;
       };
-      mr.start(250);
+      mr.start();
       mrRef.current = mr;
       setRec(true);
     } catch { setDenied(true); }
