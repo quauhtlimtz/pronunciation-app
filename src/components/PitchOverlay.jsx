@@ -20,13 +20,29 @@ function extractPitch(samples, sampleRate) {
   return points;
 }
 
-// Smooth pitch contour with median filter to remove octave jumps
-function smooth(points, radius = 2) {
-  return points.map((p, i) => {
-    const window = points.slice(Math.max(0, i - radius), i + radius + 1);
-    const sorted = window.map(w => w.freq).sort((a, b) => a - b);
+// Smooth pitch contour: median filter to remove octave jumps, then moving average
+function smooth(points, medianRadius = 3, avgRadius = 2) {
+  // Median filter — removes octave jump spikes
+  const median = points.map((p, i) => {
+    const win = points.slice(Math.max(0, i - medianRadius), i + medianRadius + 1);
+    const sorted = win.map(w => w.freq).sort((a, b) => a - b);
     return { time: p.time, freq: sorted[Math.floor(sorted.length / 2)] };
   });
+  // Moving average — smooths remaining jitter
+  return median.map((p, i) => {
+    const win = median.slice(Math.max(0, i - avgRadius), i + avgRadius + 1);
+    const avg = win.reduce((s, w) => s + w.freq, 0) / win.length;
+    return { time: p.time, freq: avg };
+  });
+}
+
+// Normalize time to 0–1 range so curves of different durations align
+function normalizeTime(points) {
+  if (points.length < 2) return points;
+  const t0 = points[0].time;
+  const t1 = points[points.length - 1].time;
+  const dur = t1 - t0 || 1;
+  return points.map(p => ({ time: (p.time - t0) / dur, freq: p.freq }));
 }
 
 // Trim leading/trailing silence so speech starts at t=0
@@ -174,8 +190,8 @@ export function PitchOverlay({ nativeUrl, userUrl }) {
           return;
         }
 
-        const natPitch = natAudio ? smooth(extractPitch(natAudio.samples, natAudio.sr)) : [];
-        const userPitch = userAudio ? smooth(extractPitch(userAudio.samples, userAudio.sr)) : [];
+        const natPitch = natAudio ? normalizeTime(smooth(extractPitch(natAudio.samples, natAudio.sr))) : [];
+        const userPitch = userAudio ? normalizeTime(smooth(extractPitch(userAudio.samples, userAudio.sr))) : [];
 
         if (natPitch.length === 0 && userPitch.length === 0) {
           setError("Could not detect pitch");

@@ -266,7 +266,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
                       {rec ? <IconStop size="lg" /> : <IconMic size="lg" />}
                     </button>
                   )}
-                  {(countdown > 0 || rec) && streamRef.current && <LiveWaveform stream={streamRef.current} />}
+                  {rec && streamRef.current && <LiveWaveform stream={streamRef.current} />}
                   <p className={`text-sm ${countdown > 0 ? "text-gray-500" : rec ? "text-amber-700 dark:text-amber-500" : "text-gray-500"}`}>
                     {countdown > 0 ? "get ready…" : rec ? "recording… tap to stop" : "tap to record yourself"}
                   </p>
