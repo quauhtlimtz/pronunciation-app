@@ -157,8 +157,8 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
       mr.onstop = () => {
         clearInterval(recTimerRef.current);
         const blob = new Blob(chunks, { type: mr.mimeType });
-        if (blob.size < 1000) {
-          setRecError("Recording was too short — try again.");
+        if (chunks.length === 0 || blob.size < 100) {
+          setRecError("No audio captured — check your microphone and try again.");
         } else {
           setRecUrl(URL.createObjectURL(blob));
           setRecError(null);
@@ -177,7 +177,8 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
       setCountdown(0);
 
       // Step 4: Start recording — INSTANT, no setup overhead
-      mr.start();
+      // Use timeslice (250ms) to ensure Safari flushes data regularly
+      mr.start(250);
       setRec(true);
 
       // Duration timer
@@ -199,6 +200,8 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
 
   const stopRec = useCallback(() => {
     if (mediaRecRef.current?.state === "recording") {
+      // Force final data flush before stopping
+      try { mediaRecRef.current.requestData(); } catch {}
       mediaRecRef.current.stop();
     }
   }, []);
