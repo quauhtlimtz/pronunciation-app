@@ -116,14 +116,8 @@ function MiniSpectrogram({ audioUrl, label }) {
   if (!audioUrl) return null;
 
   return (
-    <div className="mt-3">
+    <div>
       <div ref={waveRef} className="rounded-md overflow-hidden" />
-      <button
-        className="btn btn-default btn-sm mt-2 w-full gap-1"
-        onClick={() => wavesurfer?.playPause()}
-      >
-        {isPlaying ? <><IconPause size="sm" /> pause</> : <><IconPlay size="sm" /> play {label}</>}
-      </button>
     </div>
   );
 }
@@ -289,31 +283,29 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
         {step === "compare" && (
           <div className="flex flex-col gap-3.5">
             {recUrl && <audio ref={audioRef} src={recUrl} className="hidden" />}
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="card p-4 text-center">
-                <p className="mono-label mb-3">native</p>
-                <button className={`circ mx-auto ${natPlay ? "circ-on" : ""}`} onClick={natPlay ? stopNat : playNat}>
-                  {natPlay ? <IconPause size="lg" /> : <IconPlay size="lg" />}
+
+            {/* Spectrograms stacked for visual comparison (Praat-style) */}
+            <div className="card p-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="mono-label">native</p>
+                <button className="btn btn-default btn-sm gap-1" onClick={natPlay ? stopNat : playNat}>
+                  {natPlay ? <><IconPause size="sm" /> pause</> : <><IconPlay size="sm" /> play</>}
                 </button>
               </div>
-              <div className="card p-4 text-center">
-                <p className="mono-label mb-3">you</p>
-                <button className={`circ mx-auto ${myPlay ? "circ-on" : ""}`} onClick={myPlay ? stopMine : playMine}>
-                  {myPlay ? <IconPause size="lg" /> : <IconPlay size="lg" />}
-                </button>
-              </div>
+              <MiniSpectrogram audioUrl={natUrl} label="native" />
             </div>
+            <div className="card p-3 -mt-1.5">
+              <div className="flex items-center justify-between mb-2">
+                <p className="mono-label">you</p>
+                <button className="btn btn-default btn-sm gap-1" onClick={myPlay ? stopMine : playMine}>
+                  {myPlay ? <><IconPause size="sm" /> pause</> : <><IconPlay size="sm" /> play</>}
+                </button>
+              </div>
+              <MiniSpectrogram audioUrl={recUrl} label="yours" />
+            </div>
+
             <PitchOverlay nativeUrl={natUrl} userUrl={recUrl} />
-            <div className="flex flex-col gap-2.5">
-              <div className="card p-3">
-                <p className="mono-label mb-1 text-center">native spectrogram</p>
-                <MiniSpectrogram audioUrl={natUrl} label="native" />
-              </div>
-              <div className="card p-3">
-                <p className="mono-label mb-1 text-center">your spectrogram</p>
-                <MiniSpectrogram audioUrl={recUrl} label="yours" />
-              </div>
-            </div>
+
             <p className="text-sm text-gray-500 leading-relaxed">
               stress: {syllables}{note ? ` · ${note}` : ""}
             </p>
