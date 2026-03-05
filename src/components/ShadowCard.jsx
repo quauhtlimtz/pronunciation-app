@@ -78,9 +78,10 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   const recWaveRef = useRef(null);
   const recorderRef = useRef(null);
   const wsRef = useRef(null);
+  const mediaRecRef = useRef(null);
   const recTimerRef = useRef(null);
 
-  // Initialize wavesurfer + Record plugin when shadow step is active
+  // Initialize wavesurfer + Record plugin (for waveform visualization only)
   useEffect(() => {
     if (step !== "shadow" || !recWaveRef.current) return;
 
@@ -102,31 +103,14 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
       renderRecordedAudio: false,
     }));
 
-    // Handle recording result via plugin event
-    recorder.on("record-end", (blob) => {
-      clearInterval(recTimerRef.current);
-      setRecReady(false);
-      if (!blob || blob.size < 100) {
-        setRecError("No audio captured — check your microphone and try again.");
-      } else {
-        trimSilence(blob).then(url => {
-          setRecUrl(url);
-          setRecError(null);
-        }).catch(() => {
-          setRecUrl(URL.createObjectURL(blob));
-          setRecError(null);
-        });
-      }
-      setRec(false);
-    });
-
     wsRef.current = ws;
     recorderRef.current = recorder;
     preloadFFmpeg();
 
     return () => {
       clearInterval(recTimerRef.current);
-      if (recorder.isRecording()) recorder.stopRecording();
+      if (mediaRecRef.current?.state === "recording") mediaRecRef.current.stop();
+      mediaRecRef.current = null;
       recorder.stopMic();
       ws.destroy();
       wsRef.current = null;
@@ -201,27 +185,52 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
     if (!recorderRef.current) return;
     setRecError(null);
     setRecDuration(0);
+    setRecReady(false);
 
     try {
-      // Countdown first
+      // 1. Open mic FIRST (getUserMedia + live waveform) — this is the slow part
+      const constraints = micDeviceId ? { deviceId: { exact: micDeviceId } } : undefined;
+      const stream = await recorderRef.current.startMic(constraints);
+
+      // Detect actual device for mic selector
+      try {
+        const track = stream.getAudioTracks()[0];
+        const actualId = track?.getSettings?.()?.deviceId;
+        if (actualId && onMicDetected) onMicDetected(actualId);
+      } catch {}
+
+      // 2. Countdown (mic is already live, waveform visible)
       for (let i = 3; i >= 1; i--) {
         setCountdown(i);
         await new Promise(r => setTimeout(r, 600));
       }
       setCountdown(0);
 
-      // Start recording via plugin (handles getUserMedia + MediaRecorder)
-      const constraints = micDeviceId ? { deviceId: { exact: micDeviceId } } : undefined;
-      await recorderRef.current.startRecording(constraints);
+      // 3. Start MediaRecorder on the SAME stream — instant, no delay
+      const mr = new MediaRecorder(stream);
+      const chunks = [];
+      mr.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      mr.onstop = () => {
+        clearInterval(recTimerRef.current);
+        const blob = new Blob(chunks, { type: mr.mimeType });
+        if (blob.size < 100) {
+          setRecError("No audio captured — check your microphone and try again.");
+        } else {
+          trimSilence(blob).then(url => {
+            setRecUrl(url);
+            setRecError(null);
+          }).catch(() => {
+            setRecUrl(URL.createObjectURL(blob));
+            setRecError(null);
+          });
+        }
+        setRec(false);
+        recorderRef.current?.stopMic();
+        mediaRecRef.current = null;
+      };
+      mediaRecRef.current = mr;
+      mr.start();
       setRec(true);
-
-      // Detect actual device for mic selector
-      try {
-        const stream = recorderRef.current.stream;
-        const track = stream?.getAudioTracks()[0];
-        const actualId = track?.getSettings?.()?.deviceId;
-        if (actualId && onMicDetected) onMicDetected(actualId);
-      } catch {}
 
       // Duration timer
       const t0 = Date.now();
@@ -231,6 +240,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
     } catch (e) {
       setCountdown(0);
       setRec(false);
+      mediaRecRef.current = null;
       if (e?.name === "NotAllowedError" || e?.name === "PermissionDeniedError") {
         setDenied(true);
       } else {
@@ -240,8 +250,8 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   }, [micDeviceId, onMicDetected]);
 
   const stopRec = useCallback(() => {
-    if (recorderRef.current?.isRecording()) {
-      recorderRef.current.stopRecording();
+    if (mediaRecRef.current?.state === "recording") {
+      mediaRecRef.current.stop();
     }
   }, []);
 
