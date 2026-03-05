@@ -141,35 +141,31 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
     setRecError(null);
     setRecDuration(0);
 
+    // Countdown 3-2-1 first (no mic access yet — clean, no flicker)
+    for (let i = 3; i >= 1; i--) {
+      setCountdown(i);
+      await new Promise(r => setTimeout(r, 600));
+    }
+    setCountdown(0);
+
     try {
-      // Start mic FIRST so stream is warm during countdown
+      // Single call — startRecording handles mic access + recording in one shot
       const constraints = micDeviceId ? { deviceId: micDeviceId } : undefined;
-      await recorderRef.current.startMic(constraints);
-
-      // Detect actual device used
-      const stream = recorderRef.current.stream;
-      const track = stream?.getAudioTracks()[0];
-      const actualId = track?.getSettings?.()?.deviceId;
-      if (actualId && onMicDetected) onMicDetected(actualId);
-
-      // Countdown 3-2-1 (mic is live, user sees waveform)
-      for (let i = 3; i >= 1; i--) {
-        setCountdown(i);
-        await new Promise(r => setTimeout(r, 700));
-      }
-      setCountdown(0);
-
-      // Now start recording — mic stream is already active
-      await recorderRef.current.startRecording();
+      await recorderRef.current.startRecording(constraints);
 
       if (!recorderRef.current.isRecording()) {
         throw new Error("Recording failed to start");
       }
       setRec(true);
+
+      // Detect actual device used
+      try {
+        const track = recorderRef.current.stream?.getAudioTracks()[0];
+        const actualId = track?.getSettings?.()?.deviceId;
+        if (actualId && onMicDetected) onMicDetected(actualId);
+      } catch {}
     } catch (e) {
-      setCountdown(0);
       setRec(false);
-      try { recorderRef.current?.stopMic(); } catch {}
       if (e?.name === "NotAllowedError" || e?.name === "PermissionDeniedError") {
         setDenied(true);
       } else {
@@ -225,15 +221,15 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
         ))}
       </div>
 
-      <div className="p-6">
+      <div className="p-4">
         {step === "listen" && (
-          <div className="flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center gap-3">
             <button className={`circ ${natPlay ? "circ-on" : ""}`} onClick={natPlay ? stopNat : playNat}>
               {natPlay ? <IconPause size="lg" /> : <IconPlay size="lg" />}
             </button>
             <p className="text-sm text-gray-500">{natPlay ? "playing…" : "tap to hear native speaker"}</p>
             <button
-              className="btn btn-primary mt-1 min-w-[12.5rem] gap-1"
+              className="btn btn-primary min-w-[12.5rem] gap-1"
               disabled={!micDeviceId}
               onClick={() => setStep("shadow")}
             >
@@ -244,38 +240,38 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
         )}
 
         {step === "shadow" && (
-          <div className="flex flex-col items-center gap-4">
-            <button className="btn btn-default btn-sm gap-1" onClick={natPlay ? stopNat : playNat}>
-              {natPlay ? <><IconPause size="sm" /> stop</> : <><IconPlay size="sm" /> replay native</>}
-            </button>
-            {denied
-              ? <p className="text-sm text-amber-700 dark:text-amber-500 text-center">Microphone access denied — enable it in browser settings.</p>
-              : <>
-                  <button className={`circ ${rec ? "circ-rec" : ""} ${countdown ? "opacity-50 pointer-events-none" : ""}`} onClick={rec ? stopRec : startRec} disabled={!!countdown}>
-                    {countdown ? <span className="text-2xl font-mono font-bold">{countdown}</span> : rec ? <IconStop size="lg" /> : <IconMic size="lg" />}
+          <div className="flex flex-col items-center gap-2.5">
+            <div className="flex items-center gap-2">
+              <button className={`circ circ-sm ${rec ? "circ-rec" : ""} ${countdown ? "opacity-50 pointer-events-none" : ""}`} onClick={rec ? stopRec : startRec} disabled={!!countdown}>
+                {countdown ? <span className="text-lg font-mono font-bold">{countdown}</span> : rec ? <IconStop size="md" /> : <IconMic size="md" />}
+              </button>
+              <div className="text-left">
+                <p className={`text-sm ${rec ? "text-amber-700 dark:text-amber-500" : countdown ? "text-gray-400" : "text-gray-500"}`}>
+                  {countdown ? "get ready…" : rec
+                    ? <><span className="font-mono tabular-nums">{recDuration}s</span> · recording…</>
+                    : "tap to record"}
+                </p>
+                {!rec && !countdown && !recUrl && (
+                  <button className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer bg-transparent border-none p-0" onClick={natPlay ? stopNat : playNat}>
+                    {natPlay ? "stop native" : "replay native"}
                   </button>
-                  <div ref={recWaveRef} className={`w-full rounded-md overflow-hidden transition-opacity ${countdown ? "opacity-0" : "opacity-100"}`} style={{ minHeight: 48 }} />
-                  <p className={`text-sm ${rec ? "text-amber-700 dark:text-amber-500" : countdown ? "text-gray-400" : "text-gray-500"}`}>
-                    {countdown ? "mic is live — recording starts after countdown…" : rec
-                      ? <><span className="font-mono tabular-nums">{recDuration}s</span> · recording… tap to stop</>
-                      : "tap to record yourself"}
-                  </p>
-                  {recError && <p className="text-sm text-amber-700 dark:text-amber-500 text-center">{recError}</p>}
-                  {recUrl && !rec && (
-                    <div className="flex flex-col items-center gap-2 w-full">
-                      <div className="flex items-center gap-2">
-                        <button className="btn btn-default btn-sm gap-1" onClick={playMine}>
-                          <IconPlay size="sm" /> preview
-                        </button>
-                        <span className="text-xs text-gray-400 font-mono">{recDuration}s recorded</span>
-                      </div>
-                      <button className="btn btn-primary min-w-[12.5rem] gap-1" onClick={() => setStep("compare")}>
-                        compare <IconArrow size="sm" />
-                      </button>
-                    </div>
-                  )}
-                </>
-            }
+                )}
+              </div>
+            </div>
+            {denied && <p className="text-sm text-amber-700 dark:text-amber-500 text-center">Microphone access denied — enable it in browser settings.</p>}
+            <div ref={recWaveRef} className="w-full rounded-md overflow-hidden" style={{ minHeight: 48 }} />
+            {recError && <p className="text-sm text-amber-700 dark:text-amber-500 text-center">{recError}</p>}
+            {recUrl && !rec && (
+              <div className="flex items-center gap-2 w-full">
+                <button className="btn btn-primary flex-1 gap-1" onClick={() => setStep("compare")}>
+                  compare <IconArrow size="sm" />
+                </button>
+                <button className="btn btn-default btn-sm gap-1" onClick={playMine}>
+                  <IconPlay size="sm" /> {myPlay ? "playing…" : "preview"}
+                </button>
+                <span className="text-xs text-gray-400 font-mono shrink-0">{recDuration}s</span>
+              </div>
+            )}
           </div>
         )}
 

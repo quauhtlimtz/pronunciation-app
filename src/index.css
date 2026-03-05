@@ -65,6 +65,9 @@ html {
   @apply bg-gray-900 dark:bg-gray-100 text-white dark:text-black
          border-gray-900 dark:border-gray-100;
 }
+.circ-sm {
+  @apply w-12 h-12 text-base;
+}
 .circ-rec {
   @apply border-amber-600 text-amber-600;
 }
