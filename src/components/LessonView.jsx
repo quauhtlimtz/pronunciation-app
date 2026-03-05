@@ -142,7 +142,15 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
   const handleRecordingChange = useCallback((phrase, has) => {
     if (has) recordingsRef.current.add(phrase);
     else recordingsRef.current.delete(phrase);
-  }, []);
+
+    // Auto-complete when all shadowing phrases have been recorded
+    if (content?.shadowing && !completed) {
+      const total = content.shadowing.length;
+      if (recordingsRef.current.size >= total) {
+        onComplete();
+      }
+    }
+  }, [content, completed, onComplete]);
 
   // Warn on browser reload/close — recording blobs live in memory and will be lost.
   // The dialog text is controlled by the browser (not customizable in modern Safari/Chrome).
