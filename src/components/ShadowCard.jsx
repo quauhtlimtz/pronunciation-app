@@ -1,6 +1,8 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { speak, stopSpeak, getTtsUrl } from "../services/tts";
 import { useWavesurfer } from "@wavesurfer/react";
+import WaveSurfer from "wavesurfer.js";
+import RecordPlugin from "wavesurfer.js/dist/plugins/record.esm.js";
 import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram.esm.js";
 import { PhraseAnnotation } from "./PhraseAnnotation";
 import { PitchOverlay } from "./PitchOverlay";
@@ -17,89 +19,15 @@ const SPEC_OPTIONS = {
   frequencyMax: 8000,
 };
 
-function pickMimeType() {
-  for (const t of ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"]) {
-    if (MediaRecorder.isTypeSupported(t)) return t;
-  }
-  return "";
-}
-
-// ─── Live waveform during recording ────────────────────────────────────────
-
-function LiveWaveform({ stream }) {
-  const canvasRef = useRef(null);
-
-  useEffect(() => {
-    if (!stream) return;
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    if (ctx.state === "suspended") ctx.resume();
-
-    const source = ctx.createMediaStreamSource(stream);
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 256;
-    source.connect(analyser);
-    // Don't connect to ctx.destination — visualization only, no audio output
-
-    const data = new Uint8Array(analyser.frequencyBinCount);
-    let raf;
-    let w = 0, h = 0;
-
-    function draw() {
-      const canvas = canvasRef.current;
-      if (!canvas) { raf = requestAnimationFrame(draw); return; }
-
-      // Size canvas once (or on resize)
-      const cw = canvas.clientWidth, ch = canvas.clientHeight;
-      if (cw !== w || ch !== h) {
-        const dpr = window.devicePixelRatio || 1;
-        canvas.width = cw * dpr;
-        canvas.height = ch * dpr;
-        w = cw; h = ch;
-      }
-
-      const dpr = window.devicePixelRatio || 1;
-      const gfx = canvas.getContext("2d");
-      gfx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      analyser.getByteTimeDomainData(data);
-
-      // Find peak to auto-scale (128 samples, trivial cost)
-      let peak = 1;
-      for (let i = 0; i < data.length; i++) {
-        const d = Math.abs(data[i] - 128);
-        if (d > peak) peak = d;
-      }
-      const gain = Math.min(80 / peak, 6);
-
-      gfx.clearRect(0, 0, w, h);
-      gfx.beginPath();
-      gfx.strokeStyle = "#d97706";
-      gfx.lineWidth = 1.5;
-      const step = w / data.length;
-      for (let i = 0; i < data.length; i++) {
-        const v = ((data[i] - 128) * gain) / 128;
-        const y = (1 - v) * h / 2;
-        if (i === 0) gfx.moveTo(0, y); else gfx.lineTo(i * step, y);
-      }
-      gfx.stroke();
-      raf = requestAnimationFrame(draw);
-    }
-
-    raf = requestAnimationFrame(draw);
-    return () => { cancelAnimationFrame(raf); source.disconnect(); ctx.close(); };
-  }, [stream]);
-
-  return <canvas ref={canvasRef} className="w-full rounded-md" style={{ height: 48 }} />;
-}
-
 // ─── Spectrogram comparison ────────────────────────────────────────────────
 
-function MiniSpectrogram({ audioUrl, label }) {
+function MiniSpectrogram({ audioUrl }) {
   const waveRef = useRef(null);
   const plugins = useMemo(() => [
     SpectrogramPlugin.create(SPEC_OPTIONS),
   ], []);
 
-  const { wavesurfer, isPlaying } = useWavesurfer({
+  useWavesurfer({
     container: waveRef,
     url: audioUrl || "",
     waveColor: "rgba(156,163,175,0.5)",
@@ -130,15 +58,53 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   const [step, setStep]         = useState("listen");
   const [natPlay, setNatPlay]   = useState(false);
   const [rec, setRec]           = useState(false);
-  const [countdown, setCountdown] = useState(0);
   const [recUrl, setRecUrl]     = useState(null);
   const [myPlay, setMyPlay]     = useState(false);
   const [denied, setDenied]     = useState(false);
   const [natUrl, setNatUrl]     = useState(null);
-  const mrRef      = useRef(null);
-  const chunks     = useRef([]);
   const audioRef   = useRef(null);
-  const streamRef  = useRef(null);
+
+  // Wavesurfer Record plugin for live waveform + recording
+  const recWaveRef = useRef(null);
+  const recorderRef = useRef(null);
+  const wsRef = useRef(null);
+
+  // Initialize wavesurfer with Record plugin when shadow step is active
+  useEffect(() => {
+    if (step !== "shadow" || !recWaveRef.current) return;
+
+    const ws = WaveSurfer.create({
+      container: recWaveRef.current,
+      waveColor: "#d97706",
+      progressColor: "#d97706",
+      height: 48,
+      barWidth: 2,
+      barGap: 1,
+      barRadius: 2,
+      cursorWidth: 0,
+    });
+
+    const recorder = ws.registerPlugin(RecordPlugin.create({
+      scrollingWaveform: true,
+      scrollingWaveformWindow: 6,
+      renderRecordedAudio: false,
+    }));
+
+    recorder.on("record-end", (blob) => {
+      setRecUrl(URL.createObjectURL(blob));
+      setRec(false);
+    });
+
+    wsRef.current = ws;
+    recorderRef.current = recorder;
+
+    return () => {
+      if (recorder.isRecording()) recorder.stopRecording();
+      ws.destroy();
+      wsRef.current = null;
+      recorderRef.current = null;
+    };
+  }, [step]);
 
   useEffect(() => {
     if (step === "compare") {
@@ -154,45 +120,26 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   const stopNat  = () => { stopSpeak(); setNatPlay(false); };
   const stopMine = () => { audioRef.current?.pause(); setMyPlay(false); };
 
-  async function startRec() {
-    chunks.current = [];
+  const startRec = useCallback(async () => {
+    if (!recorderRef.current) return;
     try {
-      const audio = micDeviceId ? { deviceId: micDeviceId } : true;
-      const stream = await navigator.mediaDevices.getUserMedia({ audio });
-      streamRef.current = stream;
+      const deviceId = micDeviceId || undefined;
+      await recorderRef.current.startRecording({ deviceId });
+      setRec(true);
 
-      const track = stream.getAudioTracks()[0];
+      // Detect actual device
+      const stream = recorderRef.current.stream;
+      const track = stream?.getAudioTracks()[0];
       const actualId = track?.getSettings?.()?.deviceId;
       if (actualId && onMicDetected) onMicDetected(actualId);
-
-      // Countdown 3-2-1
-      for (let i = 3; i >= 1; i--) {
-        setCountdown(i);
-        await new Promise(r => setTimeout(r, 700));
-      }
-      setCountdown(0);
-
-      const mimeType = pickMimeType();
-      const mr = mimeType
-        ? new MediaRecorder(stream, { mimeType })
-        : new MediaRecorder(stream);
-      mr.ondataavailable = e => { if (e.data.size > 0) chunks.current.push(e.data); };
-      mr.onstop = () => {
-        const blob = new Blob(chunks.current, mimeType ? { type: mimeType } : undefined);
-        setRecUrl(URL.createObjectURL(blob));
-        stream.getTracks().forEach(t => t.stop());
-        streamRef.current = null;
-      };
-      mr.start();
-      mrRef.current = mr;
-      setRec(true);
     } catch { setDenied(true); }
-  }
+  }, [micDeviceId, onMicDetected]);
 
-  function stopRec() {
-    if (mrRef.current?.state !== "inactive") mrRef.current.stop();
-    setRec(false);
-  }
+  const stopRec = useCallback(() => {
+    if (recorderRef.current?.isRecording()) {
+      recorderRef.current.stopRecording();
+    }
+  }, []);
 
   function playMine() {
     if (!audioRef.current) return;
@@ -257,20 +204,14 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
             {denied
               ? <p className="text-sm text-amber-700 dark:text-amber-500 text-center">Microphone access denied — enable it in browser settings.</p>
               : <>
-                  {countdown > 0 ? (
-                    <div className="circ flex items-center justify-center">
-                      <span className="text-2xl font-semibold tabular-nums">{countdown}</span>
-                    </div>
-                  ) : (
-                    <button className={`circ ${rec ? "circ-rec" : ""}`} onClick={rec ? stopRec : startRec}>
-                      {rec ? <IconStop size="lg" /> : <IconMic size="lg" />}
-                    </button>
-                  )}
-                  {rec && streamRef.current && <LiveWaveform stream={streamRef.current} />}
-                  <p className={`text-sm ${countdown > 0 ? "text-gray-500" : rec ? "text-amber-700 dark:text-amber-500" : "text-gray-500"}`}>
-                    {countdown > 0 ? "get ready…" : rec ? "recording… tap to stop" : "tap to record yourself"}
+                  <button className={`circ ${rec ? "circ-rec" : ""}`} onClick={rec ? stopRec : startRec}>
+                    {rec ? <IconStop size="lg" /> : <IconMic size="lg" />}
+                  </button>
+                  <div ref={recWaveRef} className="w-full rounded-md overflow-hidden" style={{ minHeight: 48 }} />
+                  <p className={`text-sm ${rec ? "text-amber-700 dark:text-amber-500" : "text-gray-500"}`}>
+                    {rec ? "recording… tap to stop" : "tap to record yourself"}
                   </p>
-                  {recUrl && !rec && !countdown && (
+                  {recUrl && !rec && (
                     <button className="btn btn-primary min-w-[12.5rem] gap-1" onClick={() => setStep("compare")}>
                       compare <IconArrow size="sm" />
                     </button>
@@ -300,11 +241,11 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
             <div className="grid grid-cols-2 gap-2.5">
               <div className="card p-3">
                 <p className="mono-label mb-2 text-center">native</p>
-                <MiniSpectrogram audioUrl={natUrl} label="native" />
+                <MiniSpectrogram audioUrl={natUrl} />
               </div>
               <div className="card p-3">
                 <p className="mono-label mb-2 text-center">you</p>
-                <MiniSpectrogram audioUrl={recUrl} label="yours" />
+                <MiniSpectrogram audioUrl={recUrl} />
               </div>
             </div>
 

@@ -139,7 +139,7 @@ function renderCanvas(canvas, nativePitch, userPitch) {
     for (let i = 0; i < points.length; i++) {
       const x = toX(points[i].time);
       const y = toY(points[i].freq);
-      // Break line if there's a gap > 50ms
+      // Break line if there's a gap (time is normalized 0–1, so 0.05 = 5% of duration)
       if (i > 0 && points[i].time - points[i - 1].time > 0.05) {
         ctx.stroke();
         ctx.beginPath();
