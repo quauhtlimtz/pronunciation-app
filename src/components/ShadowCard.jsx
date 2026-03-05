@@ -3,7 +3,7 @@ import { speak, stopSpeak, getTtsUrl } from "../services/tts";
 import { useWavesurfer } from "@wavesurfer/react";
 import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram.esm.js";
 import { PhraseAnnotation } from "./PhraseAnnotation";
-import { IconPlay, IconPause, IconStop, IconRecord, IconMic, IconCheck, IconArrow, IconRefresh } from "./Icons";
+import { IconPlay, IconPause, IconStop, IconMic, IconCheck, IconArrow, IconRefresh } from "./Icons";
 
 const SPEC_OPTIONS = {
   labels: false,
@@ -15,6 +15,68 @@ const SPEC_OPTIONS = {
   frequencyMin: 0,
   frequencyMax: 8000,
 };
+
+function pickMimeType() {
+  for (const t of ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"]) {
+    if (MediaRecorder.isTypeSupported(t)) return t;
+  }
+  return "";
+}
+
+// ─── Live waveform during recording ────────────────────────────────────────
+
+function LiveWaveform({ stream }) {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    if (!stream) return;
+    const ctx = new AudioContext();
+    const source = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    source.connect(analyser);
+
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    let raf;
+
+    function draw() {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const dpr = window.devicePixelRatio || 1;
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+      }
+      const gfx = canvas.getContext("2d");
+      gfx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      analyser.getByteTimeDomainData(data);
+
+      gfx.clearRect(0, 0, w, h);
+      gfx.beginPath();
+      gfx.strokeStyle = "#ef4444";
+      gfx.lineWidth = 1.5;
+
+      const step = w / data.length;
+      for (let i = 0; i < data.length; i++) {
+        const y = (data[i] / 255) * h;
+        if (i === 0) gfx.moveTo(0, y);
+        else gfx.lineTo(i * step, y);
+      }
+      gfx.stroke();
+      raf = requestAnimationFrame(draw);
+    }
+
+    draw();
+    return () => { cancelAnimationFrame(raf); source.disconnect(); ctx.close(); };
+  }, [stream]);
+
+  return <canvas ref={canvasRef} className="w-full rounded-md" style={{ height: 48 }} />;
+}
+
+// ─── Spectrogram comparison ────────────────────────────────────────────────
 
 function MiniSpectrogram({ audioUrl, label }) {
   const waveRef = useRef(null);
@@ -51,6 +113,8 @@ function MiniSpectrogram({ audioUrl, label }) {
   );
 }
 
+// ─── Main component ────────────────────────────────────────────────────────
+
 const STEPS = ["listen", "shadow", "compare"];
 
 export function ShadowCard({ phrase, ipa, syllables, note, tokens }) {
@@ -61,9 +125,10 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens }) {
   const [myPlay, setMyPlay]     = useState(false);
   const [denied, setDenied]     = useState(false);
   const [natUrl, setNatUrl]     = useState(null);
-  const mrRef    = useRef(null);
-  const chunks   = useRef([]);
-  const audioRef = useRef(null);
+  const mrRef      = useRef(null);
+  const chunks     = useRef([]);
+  const audioRef   = useRef(null);
+  const streamRef  = useRef(null);
 
   useEffect(() => {
     if (step === "compare") {
@@ -79,17 +144,28 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens }) {
     chunks.current = [];
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream);
+      streamRef.current = stream;
+      const mimeType = pickMimeType();
+      const mr = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
       mr.ondataavailable = e => { if (e.data.size > 0) chunks.current.push(e.data); };
       mr.onstop = () => {
-        setRecUrl(URL.createObjectURL(new Blob(chunks.current, { type: "audio/webm" })));
+        const blob = new Blob(chunks.current, mimeType ? { type: mimeType } : undefined);
+        setRecUrl(URL.createObjectURL(blob));
         stream.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
       };
-      mr.start(); mrRef.current = mr; setRec(true);
+      mr.start();
+      mrRef.current = mr;
+      setRec(true);
     } catch { setDenied(true); }
   }
 
-  function stopRec() { if (mrRef.current?.state !== "inactive") mrRef.current.stop(); setRec(false); }
+  function stopRec() {
+    if (mrRef.current?.state !== "inactive") mrRef.current.stop();
+    setRec(false);
+  }
 
   function playMine() {
     if (!audioRef.current) return;
@@ -152,6 +228,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens }) {
                   <button className={`circ ${rec ? "circ-rec" : ""}`} onClick={rec ? stopRec : startRec}>
                     {rec ? <IconStop size="lg" /> : <IconMic size="lg" />}
                   </button>
+                  {rec && streamRef.current && <LiveWaveform stream={streamRef.current} />}
                   <p className={`text-sm ${rec ? "text-red-500" : "text-gray-500"}`}>
                     {rec ? "recording… tap to stop" : "tap to record yourself"}
                   </p>
