@@ -8,6 +8,7 @@ import { PhraseAnnotation } from "./PhraseAnnotation";
 import { PitchOverlay } from "./PitchOverlay";
 import { IconPlay, IconPause, IconStop, IconMic, IconCheck, IconArrow, IconRefresh } from "./Icons";
 import { motion } from "motion/react";
+import { trimSilence, preloadFFmpeg } from "../services/audioTrim";
 
 const SPEC_OPTIONS = {
   labels: false,
@@ -55,57 +56,6 @@ function MiniSpectrogram({ audioUrl }) {
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-
-// Trim leading silence and re-encode as mono WAV
-async function trimAndEncode(blob) {
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const buf = await ctx.decodeAudioData(await blob.arrayBuffer());
-  const raw = buf.getChannelData(0); // mono
-  const sr = buf.sampleRate;
-  const winSize = Math.round(sr * 0.01); // 10ms windows
-  const thresh = Math.pow(10, -30 / 20);
-
-  // Find speech onset
-  let onset = 0;
-  for (let i = 0; i < raw.length - winSize; i += winSize) {
-    let sum = 0;
-    for (let j = i; j < i + winSize; j++) sum += raw[j] * raw[j];
-    if (Math.sqrt(sum / winSize) > thresh) {
-      onset = Math.max(0, i - winSize * 3); // 30ms margin
-      break;
-    }
-  }
-  // Find speech offset (trim trailing silence too)
-  let offset = raw.length;
-  for (let i = raw.length - winSize; i > onset; i -= winSize) {
-    let sum = 0;
-    for (let j = i; j < i + winSize; j++) sum += raw[j] * raw[j];
-    if (Math.sqrt(sum / winSize) > thresh) {
-      offset = Math.min(i + winSize * 4, raw.length); // 40ms margin
-      break;
-    }
-  }
-  ctx.close();
-
-  // Encode trimmed mono PCM → WAV
-  const samples = raw.subarray(onset, offset);
-  const len = samples.length;
-  const wavBuf = new ArrayBuffer(44 + len * 2);
-  const v = new DataView(wavBuf);
-  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
-  w(0, "RIFF"); v.setUint32(4, 36 + len * 2, true);
-  w(8, "WAVE"); w(12, "fmt ");
-  v.setUint32(16, 16, true); v.setUint16(20, 1, true); // PCM
-  v.setUint16(22, 1, true); // mono
-  v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); // byte rate
-  v.setUint16(32, 2, true); v.setUint16(34, 16, true); // 16-bit
-  w(36, "data"); v.setUint32(40, len * 2, true);
-  for (let i = 0; i < len; i++) {
-    const s = Math.max(-1, Math.min(1, samples[i]));
-    v.setInt16(44 + i * 2, s * (s < 0 ? 0x8000 : 0x7FFF), true);
-  }
-  return URL.createObjectURL(new Blob([wavBuf], { type: "audio/wav" }));
-}
 
 // ─── Main component ────────────────────────────────────────────────────────
 
@@ -160,6 +110,9 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
 
     wsRef.current = ws;
     recorderRef.current = recorder;
+
+    // Pre-load ffmpeg WASM so trim is instant after recording
+    preloadFFmpeg();
 
     return () => {
       // Clean up our own MediaRecorder if active
@@ -268,8 +221,8 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
         if (chunks.length === 0 || blob.size < 100) {
           setRecError("No audio captured — check your microphone and try again.");
         } else {
-          // Trim leading/trailing silence so visualizations align with speech
-          trimAndEncode(blob).then(url => {
+          // Trim leading/trailing silence via ffmpeg silenceremove
+          trimSilence(blob).then(url => {
             setRecUrl(url);
             setRecError(null);
           }).catch(() => {
