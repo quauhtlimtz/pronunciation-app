@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import { ShadowCard } from "./ShadowCard";
 import { StressLegend } from "./PhraseAnnotation";
 import { IconBack, IconMic, IconArrow } from "./Icons";
+import { analyzePhrase } from "../services/api";
 
 function MicSelector({ deviceId, onChange, onStreamReady }) {
   const [devices, setDevices] = useState([]);
@@ -78,7 +79,9 @@ function MicSelector({ deviceId, onChange, onStreamReady }) {
 
 export function FreeShadow({ onBack, darkToggle }) {
   const [phrase, setPhrase] = useState("");
-  const [activePhrase, setActivePhrase] = useState(null);
+  const [analysis, setAnalysis] = useState(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [error, setError] = useState(null);
   const [micDeviceId, setMicDeviceId] = useState("");
   const micStreamRef = useRef(null);
 
@@ -89,9 +92,20 @@ export function FreeShadow({ onBack, darkToggle }) {
     micStreamRef.current = stream;
   }, []);
 
-  const go = () => {
+  const go = async () => {
     const trimmed = phrase.trim();
-    if (trimmed) setActivePhrase(trimmed);
+    if (!trimmed) return;
+    setAnalyzing(true);
+    setError(null);
+    setAnalysis(null);
+    try {
+      const data = await analyzePhrase(trimmed);
+      setAnalysis(data);
+    } catch (e) {
+      setError(e.message || "Failed to analyze phrase");
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
   return (
@@ -122,22 +136,36 @@ export function FreeShadow({ onBack, darkToggle }) {
             onKeyDown={e => e.key === "Enter" && go()}
             placeholder="Type any English phrase…"
             className="flex-1 px-3 py-2.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-gray-400 dark:focus:border-gray-500"
+            disabled={analyzing}
           />
-          <button className="btn btn-primary btn-sm gap-1" onClick={go} disabled={!phrase.trim()}>
-            Go <IconArrow size="sm" />
+          <button className="btn btn-primary btn-sm gap-1" onClick={go} disabled={!phrase.trim() || analyzing}>
+            {analyzing ? "…" : <>Go <IconArrow size="sm" /></>}
           </button>
         </div>
 
-        {activePhrase && (
+        {error && (
+          <p className="text-sm text-amber-700 dark:text-amber-500 mb-4">{error}</p>
+        )}
+
+        {analyzing && (
+          <div className="flex items-center justify-center gap-1.5 py-8">
+            {[0,1,2].map(i => (
+              <div key={i} className="loading-dot"
+                style={{ animation: `pulse-dot 1.2s ease-in-out ${i * 0.2}s infinite` }} />
+            ))}
+          </div>
+        )}
+
+        {analysis && !analyzing && (
           <div>
             <StressLegend />
             <ShadowCard
-              key={activePhrase}
-              phrase={activePhrase}
-              ipa=""
-              syllables=""
-              note=""
-              tokens={null}
+              key={analysis.phrase}
+              phrase={analysis.phrase}
+              ipa={analysis.ipa}
+              syllables={analysis.syllables}
+              note={analysis.note}
+              tokens={analysis.tokens}
               micStreamRef={micStreamRef}
             />
           </div>

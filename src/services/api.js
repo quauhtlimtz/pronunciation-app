@@ -159,6 +159,40 @@ export async function fetchFromAPI(lessonDef) {
   }
 }
 
+const ANALYZE_PROMPT = `Analyze this English phrase for pronunciation practice. Return a JSON object with:
+- "phrase": the exact input phrase
+- "ipa": full IPA transcription of the phrase
+- "syllables": syllable breakdown with stress marks (e.g. "ˈprac·tice ˈmakes ˈper·fect")
+- "note": a brief pronunciation tip for this phrase (linking, reductions, stress pattern, etc.)
+- "tokens": array of word objects, each with:
+  - "t": the word text
+  - "s": sentence-level stress: 2 = primary (content words with main emphasis: nouns, main verbs, adjectives), 1 = secondary (other content words with some stress), 0 = unstressed (function words: a, the, to, is, in, of, etc.)
+  - "lk": true when this word's final consonant links phonetically to the next word's initial vowel (e.g. "make a" → lk:true on "make")
+
+Phrase: `;
+
+export async function analyzePhrase(phrase) {
+  const provider = PROVIDERS[ACTIVE_PROVIDER];
+  const prompt = ANALYZE_PROMPT + JSON.stringify(phrase);
+
+  const body = provider.format === "anthropic"
+    ? buildAnthropicBody(provider, prompt)
+    : buildOpenAIBody(provider, prompt);
+
+  const data = await callAPI(provider, body);
+
+  const text = provider.format === "anthropic"
+    ? parseAnthropicResponse(data)
+    : parseOpenAIResponse(data);
+
+  const clean = text
+    .replace(/<think>[\s\S]*?<\/think>/g, "")
+    .replace(/```json|```/g, "")
+    .trim();
+
+  return JSON.parse(clean);
+}
+
 export async function generateContent(lessonDef, force = false) {
   if (!force) {
     const cached = cacheGet(lessonDef.id);
