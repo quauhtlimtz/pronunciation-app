@@ -8,7 +8,7 @@ import { IconPlay, IconPause, IconStop, IconMic, IconCheck, IconArrow, IconRefre
 
 const SPEC_OPTIONS = {
   labels: false,
-  height: 80,
+  height: 140,
   fftSamples: 512,
   scale: "mel",
   windowFunc: "hann",
@@ -107,7 +107,7 @@ function MiniSpectrogram({ audioUrl, label }) {
     url: audioUrl || "",
     waveColor: "rgba(156,163,175,0.5)",
     progressColor: "rgba(107,114,128,0.8)",
-    height: 32,
+    height: 48,
     barWidth: 2,
     barGap: 1,
     barRadius: 2,

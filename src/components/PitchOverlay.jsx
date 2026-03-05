@@ -124,16 +124,18 @@ export function PitchOverlay({ nativeUrl, userUrl }) {
   const canvasRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [pitchData, setPitchData] = useState(null);
 
+  // Decode + extract pitch
   useEffect(() => {
     if (!nativeUrl || !userUrl) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setPitchData(null);
 
     (async () => {
       try {
-        // Decode each independently — one might fail (e.g. Safari + webm blob)
         let natAudio = null, userAudio = null;
         try { natAudio = await decodeUrl(nativeUrl); } catch (e) { console.warn("PitchOverlay: native decode failed", e); }
         try { userAudio = await decodeUrl(userUrl); } catch (e) { console.warn("PitchOverlay: user decode failed", e); }
@@ -154,9 +156,7 @@ export function PitchOverlay({ nativeUrl, userUrl }) {
           return;
         }
 
-        if (canvasRef.current) {
-          renderCanvas(canvasRef.current, natPitch, userPitch);
-        }
+        setPitchData({ natPitch, userPitch });
         setLoading(false);
       } catch (e) {
         if (!cancelled) {
@@ -170,6 +170,13 @@ export function PitchOverlay({ nativeUrl, userUrl }) {
     return () => { cancelled = true; };
   }, [nativeUrl, userUrl]);
 
+  // Render canvas after data is ready and canvas is visible
+  useEffect(() => {
+    if (pitchData && canvasRef.current) {
+      renderCanvas(canvasRef.current, pitchData.natPitch, pitchData.userPitch);
+    }
+  }, [pitchData]);
+
   if (!nativeUrl || !userUrl) return null;
 
   return (
@@ -177,11 +184,13 @@ export function PitchOverlay({ nativeUrl, userUrl }) {
       <p className="mono-label mb-2 text-center">pitch contour</p>
       {loading && <p className="text-xs text-gray-400 text-center py-4">analyzing…</p>}
       {error && <p className="text-xs text-gray-400 text-center py-4">{error}</p>}
-      <canvas
-        ref={canvasRef}
-        className="w-full rounded-md"
-        style={{ height: 140, display: loading ? "none" : "block" }}
-      />
+      {pitchData && (
+        <canvas
+          ref={canvasRef}
+          className="w-full rounded-md"
+          style={{ height: 140 }}
+        />
+      )}
     </div>
   );
 }
