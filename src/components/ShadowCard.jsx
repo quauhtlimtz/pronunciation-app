@@ -104,7 +104,7 @@ function MiniSpectrogram({ audioUrl, label }) {
     url: audioUrl || "",
     waveColor: "rgba(156,163,175,0.5)",
     progressColor: "rgba(107,114,128,0.8)",
-    height: 48,
+    height: 80,
     barWidth: 2,
     barGap: 1,
     barRadius: 2,

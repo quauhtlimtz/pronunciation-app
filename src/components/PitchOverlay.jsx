@@ -30,14 +30,40 @@ function smooth(points, radius = 2) {
   });
 }
 
+// Trim leading/trailing silence so speech starts at t=0
+function trimSilence(samples, sampleRate, thresholdDb = -35) {
+  const threshold = Math.pow(10, thresholdDb / 20);
+  const windowSize = Math.round(sampleRate * 0.01); // 10ms windows
+
+  function rms(start, len) {
+    let sum = 0;
+    const end = Math.min(start + len, samples.length);
+    for (let i = start; i < end; i++) sum += samples[i] * samples[i];
+    return Math.sqrt(sum / (end - start));
+  }
+
+  let onset = 0;
+  for (let i = 0; i < samples.length - windowSize; i += windowSize) {
+    if (rms(i, windowSize) > threshold) { onset = i; break; }
+  }
+
+  let offset = samples.length;
+  for (let i = samples.length - windowSize; i > onset; i -= windowSize) {
+    if (rms(i, windowSize) > threshold) { offset = Math.min(i + windowSize, samples.length); break; }
+  }
+
+  return samples.slice(onset, offset);
+}
+
 async function decodeUrl(url) {
   const res = await fetch(url);
   const buf = await res.arrayBuffer();
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   const audio = await ctx.decodeAudioData(buf);
-  const samples = audio.getChannelData(0);
+  const raw = audio.getChannelData(0);
   const sr = audio.sampleRate;
   ctx.close();
+  const samples = trimSilence(raw, sr);
   return { samples, sr };
 }
 
