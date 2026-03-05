@@ -43,12 +43,13 @@ export async function trimSilence(blob) {
   await ff.writeFile(`input.${ext}`, await fetchFile(blob));
 
   // silenceremove: trim leading silence, then reverse+trim to remove trailing
+  // -20dB threshold catches ambient mic noise during warmup/countdown
   await ff.exec([
     "-i", `input.${ext}`,
     "-af", [
-      "silenceremove=start_periods=1:start_duration=0:start_threshold=-30dB",
+      "silenceremove=start_periods=1:start_duration=0:start_threshold=-20dB",
       "areverse",
-      "silenceremove=start_periods=1:start_duration=0:start_threshold=-30dB",
+      "silenceremove=start_periods=1:start_duration=0:start_threshold=-20dB",
       "areverse",
     ].join(","),
     "-ar", "16000",
