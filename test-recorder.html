@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recording Test</title>
+  <style>
+    body { font-family: system-ui; max-width: 500px; margin: 40px auto; padding: 0 20px; }
+    button { padding: 12px 24px; font-size: 16px; margin: 4px; cursor: pointer; }
+    #log { background: #f5f5f5; padding: 16px; font-family: monospace; font-size: 13px; white-space: pre-wrap; max-height: 400px; overflow-y: auto; margin-top: 20px; }
+    .level { height: 20px; background: #eee; border-radius: 4px; margin: 8px 0; }
+    .level-fill { height: 100%; background: #d97706; border-radius: 4px; transition: width 75ms; }
+  </style>
+</head>
+<body>
+  <h2>Recording Test Page</h2>
+  <p id="status">Ready</p>
+
+  <div>
+    <button id="btnMic" onclick="enableMic()">1. Enable Mic</button>
+    <button id="btnStart" onclick="startRec()" disabled>2. Start Recording</button>
+    <button id="btnStop" onclick="stopRec()" disabled>3. Stop</button>
+  </div>
+
+  <div class="level"><div class="level-fill" id="level" style="width:0%"></div></div>
+
+  <audio id="player" controls style="width:100%; margin-top:12px; display:none;"></audio>
+
+  <div id="log"></div>
+
+  <script>
+    let stream = null;
+    let mediaRecorder = null;
+    let chunks = [];
+    let audioCtx = null;
+    let analyser = null;
+    let animFrame = null;
+
+    function log(msg) {
+      const el = document.getElementById('log');
+      const time = new Date().toLocaleTimeString('en', { hour12: false, fractionalSecondDigits: 3 });
+      el.textContent += `[${time}] ${msg}\n`;
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function setStatus(msg) {
+      document.getElementById('status').textContent = msg;
+    }
+
+    async function enableMic() {
+      log('Requesting getUserMedia...');
+      const t0 = performance.now();
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const ms = Math.round(performance.now() - t0);
+        const track = stream.getAudioTracks()[0];
+        log(`getUserMedia OK in ${ms}ms`);
+        log(`Track: ${track.label}`);
+        log(`Settings: ${JSON.stringify(track.getSettings())}`);
+        setStatus('Mic enabled');
+        document.getElementById('btnStart').disabled = false;
+
+        // Audio level meter
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createMediaStreamSource(stream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        updateLevel();
+
+        log(`AudioContext state: ${audioCtx.state}, sampleRate: ${audioCtx.sampleRate}`);
+      } catch (e) {
+        log(`getUserMedia FAILED: ${e.name}: ${e.message}`);
+        setStatus('Mic error: ' + e.message);
+      }
+    }
+
+    function updateLevel() {
+      if (!analyser) return;
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(data);
+      const avg = data.reduce((a, b) => a + b, 0) / data.length;
+      document.getElementById('level').style.width = `${Math.min(avg / 128 * 100, 100)}%`;
+      animFrame = requestAnimationFrame(updateLevel);
+    }
+
+    function startRec() {
+      if (!stream) { log('No stream!'); return; }
+      chunks = [];
+
+      // Find supported mime type
+      const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/wav', ''];
+      let mimeType = '';
+      for (const t of types) {
+        if (t === '' || MediaRecorder.isTypeSupported(t)) { mimeType = t; break; }
+      }
+      log(`Using mimeType: "${mimeType || '(default)'}"`);
+
+      try {
+        mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      } catch (e) {
+        log(`MediaRecorder constructor FAILED: ${e.message}`);
+        // Try without options
+        mediaRecorder = new MediaRecorder(stream);
+        log('Fallback: MediaRecorder created without options');
+      }
+
+      mediaRecorder.ondataavailable = (e) => {
+        log(`ondataavailable: ${e.data.size} bytes`);
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      mediaRecorder.onstart = () => {
+        log(`MediaRecorder started (state: ${mediaRecorder.state})`);
+        setStatus('Recording...');
+        document.getElementById('btnStart').disabled = true;
+        document.getElementById('btnStop').disabled = false;
+      };
+
+      mediaRecorder.onstop = () => {
+        log(`MediaRecorder stopped. ${chunks.length} chunks`);
+        const blob = new Blob(chunks, { type: mediaRecorder.mimeType });
+        log(`Blob: ${blob.size} bytes, type: ${blob.type}`);
+
+        const url = URL.createObjectURL(blob);
+        const player = document.getElementById('player');
+        player.src = url;
+        player.style.display = 'block';
+        setStatus(`Done — ${blob.size} bytes, ${chunks.length} chunks`);
+
+        document.getElementById('btnStart').disabled = false;
+        document.getElementById('btnStop').disabled = true;
+      };
+
+      mediaRecorder.onerror = (e) => {
+        log(`MediaRecorder ERROR: ${e.error?.name}: ${e.error?.message}`);
+      };
+
+      log(`Calling mediaRecorder.start()...`);
+      const t0 = performance.now();
+      mediaRecorder.start();
+      log(`start() returned in ${Math.round(performance.now() - t0)}ms, state: ${mediaRecorder.state}`);
+    }
+
+    function stopRec() {
+      if (!mediaRecorder || mediaRecorder.state !== 'recording') {
+        log(`Cannot stop: state is ${mediaRecorder?.state}`);
+        return;
+      }
+      log('Calling mediaRecorder.stop()...');
+      mediaRecorder.stop();
+    }
+  </script>
+</body>
+</html>

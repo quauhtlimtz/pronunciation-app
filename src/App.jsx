@@ -7,10 +7,11 @@ import { IconCheck, IconArrow } from "./components/Icons";
 import { AnatomyDiagram } from "./components/AnatomyDiagram";
 import { Footer } from "./components/Footer";
 import { useAuth } from "./components/AuthContext";
+import { TestRecorder } from "./TestRecorder";
 
 function getParams() {
   const p = new URLSearchParams(window.location.search);
-  return { lesson: p.get("lesson"), tab: p.get("tab"), admin: p.has("admin"), anatomy: p.has("anatomy") };
+  return { lesson: p.get("lesson"), tab: p.get("tab"), admin: p.has("admin"), anatomy: p.has("anatomy"), test: p.has("test") };
 }
 
 function setParams(lesson, tab) {
@@ -95,6 +96,11 @@ export default function App() {
         <p className="text-sm text-gray-500">Loading…</p>
       </div>
     );
+  }
+
+  // Test recorder page
+  if (initial.test) {
+    return <TestRecorder />;
   }
 
   // Admin panel
