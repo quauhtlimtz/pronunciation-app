@@ -131,7 +131,7 @@ function renderCanvas(canvas, nativePitch, userPitch) {
     if (points.length < 2) return;
     ctx.beginPath();
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.5;
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
 

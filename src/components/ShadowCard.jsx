@@ -38,6 +38,7 @@ function MiniSpectrogram({ audioUrl }) {
     barRadius: 2,
     cursorWidth: 1,
     cursorColor: "rgba(255,255,255,0.5)",
+    normalize: true,
     plugins,
   });
 
@@ -77,11 +78,12 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
       container: recWaveRef.current,
       waveColor: "#d97706",
       progressColor: "#d97706",
-      height: 48,
+      height: 64,
       barWidth: 2,
       barGap: 1,
       barRadius: 2,
       cursorWidth: 0,
+      normalize: true,
     });
 
     const recorder = ws.registerPlugin(RecordPlugin.create({
