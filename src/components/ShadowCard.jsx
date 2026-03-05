@@ -140,31 +140,35 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
     setRecError(null);
     setRecDuration(0);
 
-    // Countdown 3-2-1 before recording
-    for (let i = 3; i >= 1; i--) {
-      setCountdown(i);
-      await new Promise(r => setTimeout(r, 700));
-    }
-    setCountdown(0);
-
     try {
-      // startRecording calls startMic internally — pass device constraints here
-      const constraints = micDeviceId ? { deviceId: { exact: micDeviceId } } : undefined;
-      await recorderRef.current.startRecording(constraints);
-
-      // Verify recording actually started
-      if (!recorderRef.current.isRecording()) {
-        throw new Error("Recording failed to start");
-      }
-      setRec(true);
+      // Start mic FIRST so stream is warm during countdown
+      const constraints = micDeviceId ? { deviceId: micDeviceId } : undefined;
+      await recorderRef.current.startMic(constraints);
 
       // Detect actual device used
       const stream = recorderRef.current.stream;
       const track = stream?.getAudioTracks()[0];
       const actualId = track?.getSettings?.()?.deviceId;
       if (actualId && onMicDetected) onMicDetected(actualId);
+
+      // Countdown 3-2-1 (mic is live, user sees waveform)
+      for (let i = 3; i >= 1; i--) {
+        setCountdown(i);
+        await new Promise(r => setTimeout(r, 700));
+      }
+      setCountdown(0);
+
+      // Now start recording — mic stream is already active
+      await recorderRef.current.startRecording();
+
+      if (!recorderRef.current.isRecording()) {
+        throw new Error("Recording failed to start");
+      }
+      setRec(true);
     } catch (e) {
+      setCountdown(0);
       setRec(false);
+      try { recorderRef.current?.stopMic(); } catch {}
       if (e?.name === "NotAllowedError" || e?.name === "PermissionDeniedError") {
         setDenied(true);
       } else {
@@ -248,7 +252,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
                   </button>
                   <div ref={recWaveRef} className="w-full rounded-md overflow-hidden" style={{ minHeight: 48 }} />
                   <p className={`text-sm ${rec ? "text-amber-700 dark:text-amber-500" : countdown ? "text-gray-400" : "text-gray-500"}`}>
-                    {countdown ? "get ready…" : rec
+                    {countdown ? "mic is live — recording starts after countdown…" : rec
                       ? <><span className="font-mono tabular-nums">{recDuration}s</span> · recording… tap to stop</>
                       : "tap to record yourself"}
                   </p>
