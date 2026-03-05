@@ -66,9 +66,18 @@ function LiveWaveform({ stream }) {
         gfx.strokeStyle = "#d97706";
         gfx.lineWidth = 1.5;
 
+        // Auto-gain: find peak deviation from center and scale up
+        let maxDev = 0;
+        for (let i = 0; i < data.length; i++) {
+          const dev = Math.abs(data[i] - 128);
+          if (dev > maxDev) maxDev = dev;
+        }
+        const gain = maxDev > 0 ? Math.min(128 / maxDev, 10) : 1;
+
         const step = w / data.length;
         for (let i = 0; i < data.length; i++) {
-          const y = (data[i] / 255) * h;
+          const normalized = ((data[i] - 128) * gain) / 128;
+          const y = (1 - normalized) * h / 2;
           if (i === 0) gfx.moveTo(0, y);
           else gfx.lineTo(i * step, y);
         }
@@ -130,6 +139,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   const [step, setStep]         = useState("listen");
   const [natPlay, setNatPlay]   = useState(false);
   const [rec, setRec]           = useState(false);
+  const [countdown, setCountdown] = useState(0);
   const [recUrl, setRecUrl]     = useState(null);
   const [myPlay, setMyPlay]     = useState(false);
   const [denied, setDenied]     = useState(false);
@@ -159,6 +169,14 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
       const audioConstraints = micDeviceId ? { deviceId: { exact: micDeviceId } } : true;
       const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
       streamRef.current = stream;
+
+      // Countdown 3-2-1 while mic is already open
+      for (let i = 3; i >= 1; i--) {
+        setCountdown(i);
+        await new Promise(r => setTimeout(r, 700));
+      }
+      setCountdown(0);
+
       const mimeType = pickMimeType();
       const mr = mimeType
         ? new MediaRecorder(stream, { mimeType })
@@ -170,7 +188,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
         stream.getTracks().forEach(t => t.stop());
         streamRef.current = null;
       };
-      mr.start(250); // timeslice for reliable chunk collection across browsers
+      mr.start(250);
       mrRef.current = mr;
       setRec(true);
     } catch { setDenied(true); }
@@ -239,13 +257,25 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
             {denied
               ? <p className="text-sm text-amber-700 dark:text-amber-500 text-center">Microphone access denied — enable it in browser settings.</p>
               : <>
-                  <button className={`circ ${rec ? "circ-rec" : ""}`} onClick={rec ? stopRec : startRec}>
-                    {rec ? <IconStop size="lg" /> : <IconMic size="lg" />}
-                  </button>
-                  {rec && streamRef.current && <LiveWaveform stream={streamRef.current} />}
-                  <p className={`text-sm ${rec ? "text-amber-700 dark:text-amber-500" : "text-gray-500"}`}>
-                    {rec ? "recording… tap to stop" : "tap to record yourself"}
-                  </p>
+                  {countdown > 0 ? (
+                    <>
+                      <div className="circ flex items-center justify-center">
+                        <span className="text-2xl font-semibold tabular-nums">{countdown}</span>
+                      </div>
+                      {streamRef.current && <LiveWaveform stream={streamRef.current} />}
+                      <p className="text-sm text-gray-500">get ready…</p>
+                    </>
+                  ) : (
+                    <>
+                      <button className={`circ ${rec ? "circ-rec" : ""}`} onClick={rec ? stopRec : startRec}>
+                        {rec ? <IconStop size="lg" /> : <IconMic size="lg" />}
+                      </button>
+                      {rec && streamRef.current && <LiveWaveform stream={streamRef.current} />}
+                      <p className={`text-sm ${rec ? "text-amber-700 dark:text-amber-500" : "text-gray-500"}`}>
+                        {rec ? "recording… tap to stop" : "tap to record yourself"}
+                      </p>
+                    </>
+                  )}
                   {recUrl && !rec && (
                     <button className="btn btn-primary min-w-[12.5rem] gap-1" onClick={() => setStep("compare")}>
                       compare <IconArrow size="sm" />
