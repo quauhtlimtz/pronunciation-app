@@ -171,10 +171,10 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   async function startRec() {
     chunks.current = [];
     try {
-      // Use preferred (not exact) so browser doesn't silently fail
+      // Disable browser audio processing — it causes signal gating/fluctuations
       const audioConstraints = micDeviceId
-        ? { deviceId: micDeviceId, autoGainControl: true, noiseSuppression: true }
-        : { autoGainControl: true, noiseSuppression: true };
+        ? { deviceId: micDeviceId, autoGainControl: false, noiseSuppression: false, echoCancellation: false }
+        : { autoGainControl: false, noiseSuppression: false, echoCancellation: false };
       const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
       streamRef.current = stream;
 
