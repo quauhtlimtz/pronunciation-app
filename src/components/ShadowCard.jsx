@@ -284,27 +284,29 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
           <div className="flex flex-col gap-3.5">
             {recUrl && <audio ref={audioRef} src={recUrl} className="hidden" />}
 
-            {/* Spectrograms stacked for visual comparison (Praat-style) */}
-            <div className="card p-3">
-              <div className="flex items-center justify-between mb-2">
-                <p className="mono-label">native</p>
-                <button className="btn btn-default btn-sm gap-1" onClick={natPlay ? stopNat : playNat}>
-                  {natPlay ? <><IconPause size="sm" /> pause</> : <><IconPlay size="sm" /> play</>}
-                </button>
-              </div>
-              <MiniSpectrogram audioUrl={natUrl} label="native" />
-            </div>
-            <div className="card p-3 -mt-1.5">
-              <div className="flex items-center justify-between mb-2">
-                <p className="mono-label">you</p>
-                <button className="btn btn-default btn-sm gap-1" onClick={myPlay ? stopMine : playMine}>
-                  {myPlay ? <><IconPause size="sm" /> pause</> : <><IconPlay size="sm" /> play</>}
-                </button>
-              </div>
-              <MiniSpectrogram audioUrl={recUrl} label="yours" />
+            {/* Play buttons */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <button className="btn btn-default gap-1 w-full" onClick={natPlay ? stopNat : playNat}>
+                {natPlay ? <><IconPause size="sm" /> pause native</> : <><IconPlay size="sm" /> play native</>}
+              </button>
+              <button className="btn btn-default gap-1 w-full" onClick={myPlay ? stopMine : playMine}>
+                {myPlay ? <><IconPause size="sm" /> pause yours</> : <><IconPlay size="sm" /> play yours</>}
+              </button>
             </div>
 
             <PitchOverlay nativeUrl={natUrl} userUrl={recUrl} />
+
+            {/* Spectrograms side-by-side */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="card p-3">
+                <p className="mono-label mb-2 text-center">native</p>
+                <MiniSpectrogram audioUrl={natUrl} label="native" />
+              </div>
+              <div className="card p-3">
+                <p className="mono-label mb-2 text-center">you</p>
+                <MiniSpectrogram audioUrl={recUrl} label="yours" />
+              </div>
+            </div>
 
             <p className="text-sm text-gray-500 leading-relaxed">
               stress: {syllables}{note ? ` · ${note}` : ""}
