@@ -73,6 +73,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   const [bothPlay, setBothPlay] = useState(false);
   const [natVol, setNatVol]     = useState(1);
   const [userVol, setUserVol]   = useState(1);
+  const [recReady, setRecReady] = useState(false);
 
   const recWaveRef = useRef(null);
   const recorderRef = useRef(null);
@@ -104,6 +105,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
     // Handle recording result via plugin event
     recorder.on("record-end", (blob) => {
       clearInterval(recTimerRef.current);
+      setRecReady(false);
       if (!blob || blob.size < 100) {
         setRecError("No audio captured — check your microphone and try again.");
       } else {
@@ -244,17 +246,15 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   }, []);
 
   function playMine() {
-    if (!audioRef.current) return;
+    if (!audioRef.current || !recReady) return;
     const a = audioRef.current;
     a.currentTime = 0;
     setMyPlay(true);
     a.onended = () => setMyPlay(false);
-    a.oncanplaythrough = () => { a.oncanplaythrough = null; a.play(); };
-    if (a.readyState >= 3) a.play();
-    else a.load();
+    a.play();
   }
 
-  function reset() { setStep("listen"); setRecUrl(null); setNatUrl(null); setRec(false); setNatPlay(false); setMyPlay(false); setBothPlay(false); setRecDuration(0); setRecError(null); stopSpeak(); natAudioRef.current?.pause(); audioRef.current?.pause(); }
+  function reset() { setStep("listen"); setRecUrl(null); setNatUrl(null); setRec(false); setNatPlay(false); setMyPlay(false); setBothPlay(false); setRecDuration(0); setRecError(null); setRecReady(false); stopSpeak(); natAudioRef.current?.pause(); audioRef.current?.pause(); }
 
   const si = STEPS.indexOf(step);
   const canNav = i => i <= si || (i === 2 && recUrl);
@@ -328,8 +328,8 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
                 <button className="btn btn-primary flex-1 gap-1" onClick={() => setStep("compare")}>
                   compare <IconArrow size="sm" />
                 </button>
-                <button className="btn btn-default btn-sm gap-1" onClick={playMine}>
-                  <IconPlay size="sm" /> {myPlay ? "playing…" : "preview"}
+                <button className="btn btn-default btn-sm gap-1" onClick={playMine} disabled={!recReady}>
+                  <IconPlay size="sm" /> {myPlay ? "playing…" : recReady ? "preview" : "loading…"}
                 </button>
                 <span className="text-xs text-gray-400 font-mono shrink-0">{recDuration}s</span>
               </div>
@@ -337,7 +337,8 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
           </div>
         )}
 
-        {recUrl && <audio ref={audioRef} src={recUrl} className="hidden" />}
+        {recUrl && <audio ref={audioRef} src={recUrl} className="hidden"
+          onCanPlayThrough={() => setRecReady(true)} />}
         {natUrl && <audio ref={natAudioRef} src={natUrl} className="hidden" />}
 
         {step === "compare" && (
@@ -420,7 +421,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
               transition={{ duration: 0.3, delay: 0.55 }}
               className="flex gap-2 flex-wrap"
             >
-              <button className="btn btn-default gap-1" onClick={() => { stopBoth(); setRecUrl(null); setNatUrl(null); setRecDuration(0); setRecError(null); setStep("shadow"); }}><IconRefresh size="sm" /> Re-record</button>
+              <button className="btn btn-default gap-1" onClick={() => { stopBoth(); setRecUrl(null); setNatUrl(null); setRecDuration(0); setRecError(null); setRecReady(false); setStep("shadow"); }}><IconRefresh size="sm" /> Re-record</button>
               <button className="btn btn-ghost" onClick={reset}>Start over</button>
             </motion.div>
           </div>
