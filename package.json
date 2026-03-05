@@ -16,6 +16,7 @@
     "@heroicons/react": "^2.2.0",
     "@supabase/supabase-js": "^2.98.0",
     "@wavesurfer/react": "^1.0.12",
+    "edge-tts-universal": "^1.4.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "wavesurfer.js": "^7.12.1"

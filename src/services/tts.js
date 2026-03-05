@@ -3,48 +3,12 @@ const EL_VOICE = "21m00Tcm4TlvDq8ikWAM"; // Rachel — natural American English
 const EL_MODEL = "eleven_turbo_v2";
 
 let currentAudio = null;
-let ttsMode = "el"; // "el" | "browser"
+let ttsMode = EL_KEY ? "el" : "edge"; // "el" | "edge"
 const blobCache = new Map();
 
 export function getTtsMode() { return ttsMode; }
 
-function pickVoice() {
-  const voices = window.speechSynthesis.getVoices();
-  const enUS = voices.filter(v => v.lang === "en-US" || v.lang === "en_US");
-  return (
-    enUS.find(v => /jenny|aria|guy|ana|christopher|eric|michelle|roger|steffan/i.test(v.name)) ||
-    enUS.find(v => /microsoft/i.test(v.name) && /natural|neural/i.test(v.name)) ||
-    enUS.find(v => /microsoft/i.test(v.name)) ||
-    enUS.find(v => /samantha|karen|moira/i.test(v.name)) ||
-    enUS[0] ||
-    voices.find(v => v.lang.startsWith("en"))
-  );
-}
-
-export function getVoiceName() {
-  const v = pickVoice();
-  return v ? v.name : "";
-}
-
-function ensureVoices(cb) {
-  const voices = window.speechSynthesis.getVoices();
-  if (voices.length > 0) { cb(); return; }
-  window.speechSynthesis.onvoiceschanged = () => cb();
-}
-
-function browserSpeak(text, onEnd) {
-  window.speechSynthesis.cancel();
-  ensureVoices(() => {
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = "en-US";
-    utt.rate = 0.88;
-    utt.pitch = 1.0;
-    const v = pickVoice();
-    if (v) utt.voice = v;
-    if (onEnd) utt.onend = onEnd;
-    window.speechSynthesis.speak(utt);
-  });
-}
+// ─── ElevenLabs (primary) ───────────────────────────────────────────────────
 
 async function fetchElevenLabs(text) {
   if (blobCache.has(text)) return blobCache.get(text);
@@ -63,32 +27,60 @@ async function fetchElevenLabs(text) {
   return url;
 }
 
+// ─── Edge TTS (fallback — serverless function) ─────────────────────────────
+
+async function fetchEdgeTts(text) {
+  if (blobCache.has(text)) return blobCache.get(text);
+  const res = await fetch(`/api/tts?text=${encodeURIComponent(text)}`);
+  if (!res.ok) throw new Error(`edge-tts error ${res.status}`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  blobCache.set(text, url);
+  return url;
+}
+
+// ─── Unified fetch (cached) ────────────────────────────────────────────────
+
+async function fetchTts(text) {
+  if (ttsMode === "el") return fetchElevenLabs(text);
+  return fetchEdgeTts(text);
+}
+
+// ─── Public API ─────────────────────────────────────────────────────────────
+
 export async function getTtsUrl(text) {
-  if (ttsMode === "browser") return null;
-  try { return await fetchElevenLabs(text); } catch { return null; }
+  try { return await fetchTts(text); } catch { return null; }
 }
 
 export async function speak(text, onEnd, onFallback) {
-  if (ttsMode === "browser") {
-    browserSpeak(text, onEnd);
-    return;
-  }
   try {
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
-    const url = await fetchElevenLabs(text);
+    const url = await fetchTts(text);
     const audio = new Audio(url);
     currentAudio = audio;
     if (onEnd) audio.onended = () => { currentAudio = null; onEnd(); };
     await audio.play();
   } catch (e) {
-    console.warn("ElevenLabs fallback:", e.message);
-    ttsMode = "browser";
-    if (onFallback) onFallback(e.message);
-    browserSpeak(text, onEnd);
+    console.warn("TTS error:", e.message);
+    // If ElevenLabs failed, switch to edge-tts and retry once
+    if (ttsMode === "el") {
+      ttsMode = "edge";
+      if (onFallback) onFallback("edge");
+      try {
+        const url = await fetchEdgeTts(text);
+        const audio = new Audio(url);
+        currentAudio = audio;
+        if (onEnd) audio.onended = () => { currentAudio = null; onEnd(); };
+        await audio.play();
+        return;
+      } catch (e2) {
+        console.warn("Edge TTS also failed:", e2.message);
+      }
+    }
+    if (onEnd) onEnd();
   }
 }
 
 export function stopSpeak() {
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
-  window.speechSynthesis.cancel();
 }

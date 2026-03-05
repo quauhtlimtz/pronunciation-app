@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { speak, stopSpeak, getTtsMode, getVoiceName, getTtsUrl } from "../services/tts";
+import { speak, stopSpeak, getTtsUrl } from "../services/tts";
 import { useWavesurfer } from "@wavesurfer/react";
 import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram.esm.js";
 import { PhraseAnnotation } from "./PhraseAnnotation";
-import { IconPlay, IconPause, IconStop, IconRecord, IconMic, IconCheck, IconArrow, IconRefresh, IconWarn } from "./Icons";
+import { IconPlay, IconPause, IconStop, IconRecord, IconMic, IconCheck, IconArrow, IconRefresh } from "./Icons";
 
 const SPEC_OPTIONS = {
   labels: false,
@@ -60,7 +60,6 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens }) {
   const [recUrl, setRecUrl]     = useState(null);
   const [myPlay, setMyPlay]     = useState(false);
   const [denied, setDenied]     = useState(false);
-  const [fallback, setFallback] = useState(getTtsMode() === "browser");
   const [natUrl, setNatUrl]     = useState(null);
   const mrRef    = useRef(null);
   const chunks   = useRef([]);
@@ -72,7 +71,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens }) {
     }
   }, [step, phrase]);
 
-  const playNat  = () => { setNatPlay(true);  speak(phrase, () => setNatPlay(false), () => setFallback(true)); };
+  const playNat  = () => { setNatPlay(true);  speak(phrase, () => setNatPlay(false)); };
   const stopNat  = () => { stopSpeak(); setNatPlay(false); };
   const stopMine = () => { audioRef.current?.pause(); setMyPlay(false); };
 
@@ -114,11 +113,6 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens }) {
         }
         <div className="mono-muted mt-2">{ipa}</div>
         {note && <div className="mono-dim mt-1 leading-relaxed">{note}</div>}
-        {fallback && (
-          <div className="font-mono text-sm text-gray-500 mt-2 tracking-wide flex items-center gap-1">
-            <IconWarn size="sm" /> browser TTS{(() => { const v = getVoiceName(); return v ? ` · ${v}` : ""; })()}
-          </div>
-        )}
       </div>
 
       {/* step tabs */}
