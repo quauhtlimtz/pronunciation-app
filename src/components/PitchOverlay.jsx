@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { YIN } from "pitchfinder";
 
 // Extract pitch contour from audio samples
-function extractPitch(samples, sampleRate, windowMs = 20, hopMs = 10) {
-  const detectPitch = YIN({ sampleRate });
+function extractPitch(samples, sampleRate) {
+  const detectPitch = YIN({ sampleRate, threshold: 0.15 });
+  // 40ms window needed for YIN to detect 2 periods at ~60Hz
+  const windowMs = 40, hopMs = 10;
   const windowSize = Math.round(sampleRate * windowMs / 1000);
   const hopSize = Math.round(sampleRate * hopMs / 1000);
   const points = [];

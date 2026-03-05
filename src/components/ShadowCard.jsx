@@ -163,10 +163,9 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   async function startRec() {
     chunks.current = [];
     try {
-      // Disable browser audio processing — it causes signal gating/fluctuations
       const audioConstraints = micDeviceId
-        ? { deviceId: micDeviceId, autoGainControl: false, noiseSuppression: false, echoCancellation: false }
-        : { autoGainControl: false, noiseSuppression: false, echoCancellation: false };
+        ? { deviceId: micDeviceId, channelCount: 1, autoGainControl: false, noiseSuppression: false, echoCancellation: false }
+        : { channelCount: 1, autoGainControl: false, noiseSuppression: false, echoCancellation: false };
       const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
       streamRef.current = stream;
 
@@ -205,11 +204,26 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   }
 
   function playMine() {
-    if (!audioRef.current) return;
-    audioRef.current.currentTime = 0;
-    audioRef.current.play();
-    setMyPlay(true);
-    audioRef.current.onended = () => setMyPlay(false);
+    if (!recUrl) return;
+    // Play through Web Audio to ensure mono is centered (not left-only)
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    fetch(recUrl).then(r => r.arrayBuffer()).then(buf => ctx.decodeAudioData(buf)).then(decoded => {
+      // If mono, create stereo buffer with same data in both channels
+      let buffer = decoded;
+      if (decoded.numberOfChannels === 1) {
+        buffer = ctx.createBuffer(2, decoded.length, decoded.sampleRate);
+        const mono = decoded.getChannelData(0);
+        buffer.copyToChannel(mono, 0);
+        buffer.copyToChannel(mono, 1);
+      }
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      source.start();
+      setMyPlay(true);
+      source.onended = () => { setMyPlay(false); ctx.close(); };
+      audioRef.current = { pause: () => { source.stop(); ctx.close(); } };
+    });
   }
 
   function reset() { setStep("listen"); setRecUrl(null); setNatUrl(null); setRec(false); setNatPlay(false); setMyPlay(false); stopSpeak(); }
@@ -308,7 +322,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
               </div>
             </div>
             <PitchOverlay nativeUrl={natUrl} userUrl={recUrl} />
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="flex flex-col gap-2.5">
               <div className="card p-3">
                 <p className="mono-label mb-1 text-center">native spectrogram</p>
                 <MiniSpectrogram audioUrl={natUrl} label="native" />
