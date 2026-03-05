@@ -60,7 +60,7 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
   const TAB_LABELS = { theory: "Theory", practice: "Practice", shadowing: "Shadowing" };
 
   return (
-    <div className="page min-h-dvh flex flex-col">
+    <div className="page">
       {/* sticky header + tabs */}
       <div className="sticky top-0 z-50 bg-gray-50 dark:bg-gray-950">
         <div className="border-b border-gray-200 dark:border-gray-700 px-4 py-3">
@@ -71,11 +71,8 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
               <p className="text-base mt-0.5 truncate">{def.title}</p>
             </div>
             <button className="btn btn-default btn-sm gap-1" onClick={() => load(true)} disabled={loading}>
-              {loading ? "…" : <><IconRefresh size="sm" /> new</>}
+              {loading ? "…" : <><IconRefresh size="sm" /> New</>}
             </button>
-            {fromCache && !loading && (
-              <span className="font-mono text-[0.6rem] text-gray-400 uppercase tracking-wider">cached</span>
-            )}
             {completed && <span className="mono-dim"><IconCheck size="sm" /></span>}
             {darkToggle}
           </div>
@@ -90,12 +87,12 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
       </div>
 
       {/* content */}
-      <div className="page-content flex-1 flex flex-col">
+      <div className="page-content">
         {error && (
           <div className="text-red-500 text-sm p-3.5 border border-red-900/20 rounded mb-5 leading-relaxed">
             {error}
             <br />
-            <button className="btn btn-default btn-sm mt-2.5" onClick={load}>retry</button>
+            <button className="btn btn-default btn-sm mt-2.5" onClick={load}>Retry</button>
           </div>
         )}
 
@@ -112,7 +109,7 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
         )}
 
         {!loading && content && (
-          <>
+          <div className="flex-1">
             {tab === "theory" && (
               <div>
                 <p className="text-sm text-gray-500 mb-4 leading-relaxed">
@@ -120,7 +117,7 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
                 </p>
                 {content.theory.map((item, i) => <TheoryCard key={i} item={item} />)}
                 <button className="btn btn-primary btn-full mt-4 gap-1" onClick={() => setTab("practice")}>
-                  start practice <IconArrow size="sm" />
+                  Start practice <IconArrow size="sm" />
                 </button>
               </div>
             )}
@@ -202,11 +199,11 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
 
                 <div className="flex gap-2 mt-4 flex-wrap">
                   {!submitted
-                    ? <button className="btn btn-primary btn-full gap-1" onClick={submitEx} disabled={!allAnswered}>check <IconArrow size="sm" /></button>
+                    ? <button className="btn btn-primary btn-full gap-1" onClick={submitEx} disabled={!allAnswered}>Check <IconArrow size="sm" /></button>
                     : <>
-                        <button className="btn btn-default gap-1" onClick={retryEx}><IconRefresh size="sm" /> retry</button>
-                        <button className="btn btn-ghost gap-1" onClick={load}><IconRefresh size="sm" /> new words</button>
-                        {score === exItems.length && <button className="btn btn-primary gap-1" onClick={onComplete}><IconCheck size="sm" /> complete</button>}
+                        <button className="btn btn-default gap-1" onClick={retryEx}><IconRefresh size="sm" /> Retry</button>
+                        <button className="btn btn-ghost gap-1" onClick={load}><IconRefresh size="sm" /> New words</button>
+                        {score === exItems.length && <button className="btn btn-primary gap-1" onClick={onComplete}><IconCheck size="sm" /> Complete</button>}
                       </>
                   }
                 </div>
@@ -225,8 +222,10 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
                 ))}
               </div>
             )}
-          </>
+          </div>
         )}
+      </div>
+      <div className="max-w-[40rem] mx-auto px-4 w-full">
         <Footer />
       </div>
     </div>

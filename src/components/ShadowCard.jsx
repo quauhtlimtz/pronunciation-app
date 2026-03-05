@@ -137,8 +137,8 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens }) {
               stress: {syllables}{note ? ` · ${note}` : ""}
             </p>
             <div className="flex gap-2 flex-wrap">
-              <button className="btn btn-default gap-1" onClick={() => { setRecUrl(null); setStep("shadow"); }}><IconRefresh size="sm" /> re-record</button>
-              <button className="btn btn-ghost" onClick={reset}>start over</button>
+              <button className="btn btn-default gap-1" onClick={() => { setRecUrl(null); setStep("shadow"); }}><IconRefresh size="sm" /> Re-record</button>
+              <button className="btn btn-ghost" onClick={reset}>Start over</button>
             </div>
           </div>
         )}
