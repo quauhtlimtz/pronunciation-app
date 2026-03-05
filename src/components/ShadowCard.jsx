@@ -57,7 +57,7 @@ function LiveWaveform({ stream }) {
 
       gfx.clearRect(0, 0, w, h);
       gfx.beginPath();
-      gfx.strokeStyle = "#ef4444";
+      gfx.strokeStyle = "#d97706";
       gfx.lineWidth = 1.5;
 
       const step = w / data.length;
@@ -229,13 +229,13 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
               {natPlay ? <><IconPause size="sm" /> stop</> : <><IconPlay size="sm" /> replay native</>}
             </button>
             {denied
-              ? <p className="text-sm text-red-500 text-center">Microphone access denied — enable it in browser settings.</p>
+              ? <p className="text-sm text-amber-700 dark:text-amber-500 text-center">Microphone access denied — enable it in browser settings.</p>
               : <>
                   <button className={`circ ${rec ? "circ-rec" : ""}`} onClick={rec ? stopRec : startRec}>
                     {rec ? <IconStop size="lg" /> : <IconMic size="lg" />}
                   </button>
                   {rec && streamRef.current && <LiveWaveform stream={streamRef.current} />}
-                  <p className={`text-sm ${rec ? "text-red-500" : "text-gray-500"}`}>
+                  <p className={`text-sm ${rec ? "text-amber-700 dark:text-amber-500" : "text-gray-500"}`}>
                     {rec ? "recording… tap to stop" : "tap to record yourself"}
                   </p>
                   {recUrl && !rec && (

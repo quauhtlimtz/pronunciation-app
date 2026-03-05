@@ -10,36 +10,40 @@ import { Footer } from "./Footer";
 function MicSelector({ deviceId, onChange }) {
   const [devices, setDevices] = useState([]);
   const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    async function load() {
-      // Need a brief getUserMedia call to get permission, then enumerate
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach(t => t.stop());
-      } catch { return; }
+  async function loadDevices() {
+    setLoading(true);
+    try {
+      // Request permission first (may trigger browser dialog)
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(t => t.stop());
       const all = await navigator.mediaDevices.enumerateDevices();
-      setDevices(all.filter(d => d.kind === "audioinput"));
-    }
-    if (open && devices.length === 0) load();
-  }, [open]);
+      const mics = all.filter(d => d.kind === "audioinput");
+      setDevices(mics);
+      // Open dropdown after devices are loaded
+      if (mics.length > 0) setOpen(true);
+    } catch { /* permission denied */ }
+    finally { setLoading(false); }
+  }
 
   const current = devices.find(d => d.deviceId === deviceId);
   const label = current?.label || "Default microphone";
 
   return (
-    <div className="relative">
+    <div className="relative shrink-0">
       <button
         className="btn btn-default btn-sm gap-1.5 text-left max-w-full"
-        onClick={() => setOpen(!open)}
+        onClick={() => devices.length > 0 ? setOpen(!open) : loadDevices()}
+        disabled={loading}
       >
         <IconMic size="sm" />
-        <span className="truncate">{label}</span>
+        <span className="truncate">{loading ? "…" : label}</span>
       </button>
       {open && devices.length > 0 && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full mt-1 z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[16rem] max-w-[calc(100vw-2rem)]">
+          <div className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[16rem] max-w-[calc(100vw-2rem)]">
             {devices.map(d => (
               <button key={d.deviceId}
                 className={`block w-full text-left px-3 py-2 text-sm truncate cursor-pointer
@@ -70,7 +74,7 @@ function ConfirmDialog({ onConfirm, onCancel }) {
         </p>
         <div className="flex gap-2 justify-end">
           <button className="btn btn-default" onClick={onCancel}>Stay</button>
-          <button className="btn btn-ghost text-red-500" onClick={onConfirm}>Leave</button>
+          <button className="btn btn-ghost text-amber-700 dark:text-amber-500" onClick={onConfirm}>Leave</button>
         </div>
       </div>
     </div>

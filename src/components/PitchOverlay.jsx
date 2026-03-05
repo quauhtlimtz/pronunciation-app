@@ -109,15 +109,15 @@ function renderCanvas(canvas, nativePitch, userPitch) {
     ctx.stroke();
   }
 
-  drawCurve(nativePitch, "rgba(59,130,246,0.8)");  // blue
-  drawCurve(userPitch, "rgba(239,68,68,0.8)");      // red
+  drawCurve(nativePitch, "rgba(107,114,128,0.8)");   // gray
+  drawCurve(userPitch, "rgba(217,119,6,0.8)");       // amber
 
   // Legend
   ctx.font = "10px monospace";
-  ctx.fillStyle = "rgba(59,130,246,0.9)";
+  ctx.fillStyle = "rgba(107,114,128,0.9)";
   ctx.textAlign = "left";
   ctx.fillText("native", pad.left + 4, h - 6);
-  ctx.fillStyle = "rgba(239,68,68,0.9)";
+  ctx.fillStyle = "rgba(217,119,6,0.9)";
   ctx.fillText("you", pad.left + 52, h - 6);
 }
 
