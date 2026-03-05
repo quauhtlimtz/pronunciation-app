@@ -7,28 +7,35 @@ import { StressLegend } from "./PhraseAnnotation";
 import { IconBack, IconRefresh, IconCheck, IconArrow, IconClose, IconMic } from "./Icons";
 import { Footer } from "./Footer";
 
-function MicSelector({ deviceId, onChange }) {
+function MicSelector({ deviceId, onChange, permissionGranted }) {
   const [devices, setDevices] = useState([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Auto-load devices once mic permission is granted (from recording)
+  useEffect(() => {
+    if (permissionGranted && devices.length === 0) {
+      navigator.mediaDevices.enumerateDevices().then(all => {
+        setDevices(all.filter(d => d.kind === "audioinput"));
+      });
+    }
+  }, [permissionGranted, devices.length]);
+
   async function loadDevices() {
     setLoading(true);
     try {
-      // Request permission first (may trigger browser dialog)
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach(t => t.stop());
       const all = await navigator.mediaDevices.enumerateDevices();
       const mics = all.filter(d => d.kind === "audioinput");
       setDevices(mics);
-      // Open dropdown after devices are loaded
       if (mics.length > 0) setOpen(true);
     } catch { /* permission denied */ }
     finally { setLoading(false); }
   }
 
   const current = devices.find(d => d.deviceId === deviceId);
-  const label = current?.label || "Default microphone";
+  const label = current?.label || (deviceId ? "Selected microphone" : "Default microphone");
 
   return (
     <div className="relative shrink-0">
@@ -95,6 +102,7 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
   const timerRef = useRef(null);
   const [confirmAction, setConfirmAction] = useState(null);
   const [micDeviceId, setMicDeviceId] = useState("");
+  const [micPermissionGranted, setMicPermissionGranted] = useState(false);
   const recordingsRef = useRef(new Set());
 
   const hasRecordings = useCallback(() => recordingsRef.current.size > 0, []);
@@ -321,13 +329,14 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
                   <p className="text-sm text-gray-500 leading-relaxed hidden sm:block pt-1">
                     listen, shadow, compare · record yourself imitating the native speaker
                   </p>
-                  <MicSelector deviceId={micDeviceId} onChange={setMicDeviceId} />
+                  <MicSelector deviceId={micDeviceId} onChange={setMicDeviceId} permissionGranted={micPermissionGranted} />
                 </div>
                 <StressLegend />
                 {content.shadowing.map((p, i) => (
                   <ShadowCard key={`${def.id}-${i}-${p.phrase}`}
                     phrase={p.phrase} ipa={p.ipa} syllables={p.syllables} note={p.note} tokens={p.tokens}
                     micDeviceId={micDeviceId}
+                    onMicDetected={(id) => { setMicDeviceId(id); setMicPermissionGranted(true); }}
                     onRecordingChange={has => handleRecordingChange(p.phrase, has)} />
                 ))}
               </div>

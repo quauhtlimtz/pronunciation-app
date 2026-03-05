@@ -135,7 +135,7 @@ function MiniSpectrogram({ audioUrl, label }) {
 
 const STEPS = ["listen", "shadow", "compare"];
 
-export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, onRecordingChange }) {
+export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, onMicDetected, onRecordingChange }) {
   const [step, setStep]         = useState("listen");
   const [natPlay, setNatPlay]   = useState(false);
   const [rec, setRec]           = useState(false);
@@ -166,9 +166,17 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   async function startRec() {
     chunks.current = [];
     try {
-      const audioConstraints = micDeviceId ? { deviceId: { exact: micDeviceId } } : true;
+      // Use preferred (not exact) so browser doesn't silently fail
+      const audioConstraints = micDeviceId
+        ? { deviceId: micDeviceId, autoGainControl: true, noiseSuppression: true }
+        : { autoGainControl: true, noiseSuppression: true };
       const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
       streamRef.current = stream;
+
+      // Report which device the browser actually chose
+      const track = stream.getAudioTracks()[0];
+      const actualId = track?.getSettings?.()?.deviceId;
+      if (actualId && onMicDetected) onMicDetected(actualId);
 
       // Countdown 3-2-1 while mic is already open
       for (let i = 3; i >= 1; i--) {
