@@ -256,9 +256,14 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
               {natPlay ? <IconPause size="lg" /> : <IconPlay size="lg" />}
             </button>
             <p className="text-sm text-gray-500">{natPlay ? "playing…" : "tap to hear native speaker"}</p>
-            <button className="btn btn-primary mt-1 min-w-[12.5rem] gap-1" onClick={() => setStep("shadow")}>
+            <button
+              className="btn btn-primary mt-1 min-w-[12.5rem] gap-1"
+              disabled={!micDeviceId}
+              onClick={() => setStep("shadow")}
+            >
               ready to shadow <IconArrow size="sm" />
             </button>
+            {!micDeviceId && <p className="text-xs text-gray-400">select a microphone first</p>}
           </div>
         )}
 
