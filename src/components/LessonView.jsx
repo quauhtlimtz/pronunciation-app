@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { getContent } from "../services/content";
 import { TheoryCard } from "./TheoryCard";
 import { SpeakWord } from "./SpeakWord";
@@ -6,6 +6,25 @@ import { ShadowCard } from "./ShadowCard";
 import { StressLegend } from "./PhraseAnnotation";
 import { IconBack, IconRefresh, IconCheck, IconArrow, IconClose } from "./Icons";
 import { Footer } from "./Footer";
+
+function ConfirmDialog({ onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={onCancel}>
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+      <div className="relative bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-sm w-full p-6 border border-gray-200 dark:border-gray-700"
+        onClick={e => e.stopPropagation()}>
+        <p className="text-base mb-1">Leave this page?</p>
+        <p className="text-sm text-gray-500 leading-relaxed mb-5">
+          You have a recording that hasn't been saved. It will be lost if you navigate away.
+        </p>
+        <div className="flex gap-2 justify-end">
+          <button className="btn btn-default" onClick={onCancel}>Stay</button>
+          <button className="btn btn-ghost text-red-500" onClick={onConfirm}>Leave</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab = "theory", onTabChange, user }) {
   const setTab = onTabChange || (() => {});
@@ -19,6 +38,33 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
   const [fromCache, setFromCache] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef(null);
+  const [confirmAction, setConfirmAction] = useState(null);
+  const recordingsRef = useRef(new Set());
+
+  const hasRecordings = useCallback(() => recordingsRef.current.size > 0, []);
+
+  const handleRecordingChange = useCallback((phrase, has) => {
+    if (has) recordingsRef.current.add(phrase);
+    else recordingsRef.current.delete(phrase);
+  }, []);
+
+  // Browser reload/close warning
+  useEffect(() => {
+    const handler = e => {
+      if (recordingsRef.current.size > 0) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, []);
+
+  // Guard navigation: wraps an action with confirmation if recordings exist
+  function guardNav(action) {
+    if (hasRecordings()) setConfirmAction(() => action);
+    else action();
+  }
 
   async function load(force = false) {
     setLoading(true); setError(null); setElapsed(0);
@@ -60,7 +106,7 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
       <div className="sticky top-0 z-50 bg-gray-50 dark:bg-gray-950">
         <div className="border-b border-gray-100 dark:border-gray-800 px-3 sm:px-4 py-2.5 sm:py-3">
           <div className="flex items-center gap-2">
-            <button className="p-2 rounded cursor-pointer text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 active:opacity-50 transition-colors" onClick={onBack}><IconBack size="md" /></button>
+            <button className="p-2 rounded cursor-pointer text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 active:opacity-50 transition-colors" onClick={() => guardNav(onBack)}><IconBack size="md" /></button>
             <div className="flex-1 min-w-0">
               <p className="mono-label hidden sm:block">{def.session}</p>
               <p className="text-sm sm:text-base mt-0.5 truncate">{def.title}</p>
@@ -80,7 +126,7 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
           {TABS.map(t => (
             <button key={t}
               className={`tab-btn flex-1 sm:flex-none ${tab === t ? "tab-btn-active" : ""}`}
-              onClick={() => setTab(t)}>{TAB_LABELS[t]}</button>
+              onClick={() => tab === "shadowing" && t !== "shadowing" ? guardNav(() => setTab(t)) : setTab(t)}>{TAB_LABELS[t]}</button>
           ))}
         </div>
       </div>
@@ -220,7 +266,8 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
                 <StressLegend />
                 {content.shadowing.map((p, i) => (
                   <ShadowCard key={`${def.id}-${i}-${p.phrase}`}
-                    phrase={p.phrase} ipa={p.ipa} syllables={p.syllables} note={p.note} tokens={p.tokens} />
+                    phrase={p.phrase} ipa={p.ipa} syllables={p.syllables} note={p.note} tokens={p.tokens}
+                    onRecordingChange={has => handleRecordingChange(p.phrase, has)} />
                 ))}
               </div>
             )}
@@ -230,6 +277,13 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
       <div className="max-w-[40rem] mx-auto px-4 w-full">
         <Footer />
       </div>
+
+      {confirmAction && (
+        <ConfirmDialog
+          onCancel={() => setConfirmAction(null)}
+          onConfirm={() => { setConfirmAction(null); confirmAction(); }}
+        />
+      )}
     </div>
   );
 }

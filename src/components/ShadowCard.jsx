@@ -118,7 +118,7 @@ function MiniSpectrogram({ audioUrl, label }) {
 
 const STEPS = ["listen", "shadow", "compare"];
 
-export function ShadowCard({ phrase, ipa, syllables, note, tokens }) {
+export function ShadowCard({ phrase, ipa, syllables, note, tokens, onRecordingChange }) {
   const [step, setStep]         = useState("listen");
   const [natPlay, setNatPlay]   = useState(false);
   const [rec, setRec]           = useState(false);
@@ -136,6 +136,10 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens }) {
       getTtsUrl(phrase).then(url => url && setNatUrl(url));
     }
   }, [step, phrase]);
+
+  useEffect(() => {
+    onRecordingChange?.(!!recUrl);
+  }, [recUrl]);
 
   const playNat  = () => { setNatPlay(true);  speak(phrase, () => setNatPlay(false)); };
   const stopNat  = () => { stopSpeak(); setNatPlay(false); };
