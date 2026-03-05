@@ -60,7 +60,7 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
   const TAB_LABELS = { theory: "Theory", practice: "Practice", shadowing: "Shadowing" };
 
   return (
-    <div className="page">
+    <div className="page min-h-dvh flex flex-col">
       {/* sticky header + tabs */}
       <div className="sticky top-0 z-50 bg-gray-50 dark:bg-gray-950">
         <div className="border-b border-gray-200 dark:border-gray-700 px-4 py-3">
@@ -90,7 +90,7 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
       </div>
 
       {/* content */}
-      <div className="page-content">
+      <div className="page-content flex-1 flex flex-col">
         {error && (
           <div className="text-red-500 text-sm p-3.5 border border-red-900/20 rounded mb-5 leading-relaxed">
             {error}

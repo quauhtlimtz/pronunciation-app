@@ -118,7 +118,7 @@ export default function App() {
   const done = Object.keys(completed).length;
 
   return (
-    <div className="min-h-dvh bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100">
+    <div className="min-h-dvh bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 flex flex-col">
       {/* header */}
       <div className="border-b border-gray-200 dark:border-gray-700 px-4 pt-5 pb-4">
         <div className="flex items-start justify-between gap-3">
@@ -141,7 +141,7 @@ export default function App() {
       </div>
 
       {/* list */}
-      <div className="max-w-[40rem] mx-auto px-4 pt-5 pb-safe">
+      <div className="max-w-[40rem] mx-auto px-4 pt-5 pb-safe flex-1 flex flex-col">
         {/* user section */}
         {user ? (
           <div className="card mb-6 p-4">
