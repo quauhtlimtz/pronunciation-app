@@ -6,7 +6,7 @@ export function ThemeToggle({ dark, setDark }) {
 
   return (
     <button
-      className="btn btn-default !px-3 !py-2 leading-none shrink-0"
+      className="p-2 rounded cursor-pointer text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 active:opacity-50 transition-colors shrink-0"
       onClick={() => setDark(isDarkNow ? false : true)}
       title={isDarkNow ? "Switch to light mode" : "Switch to dark mode"}
     >

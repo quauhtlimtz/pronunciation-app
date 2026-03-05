@@ -6,7 +6,7 @@ export function WordBadge({ word, ipa, syllables }) {
   return (
     <div
       className={`inline-block border rounded p-2.5 cursor-pointer select-none min-h-11
-        ${open ? "border-gray-400 dark:border-gray-500" : "border-gray-200 dark:border-gray-700"}`}
+        ${open ? "border-gray-400 dark:border-gray-500" : "border-gray-100 dark:border-gray-800"}`}
       onClick={e => { e.stopPropagation(); setOpen(!open); }}
     >
       <SpeakWord word={word} ipa={ipa} className="block text-base mb-0.5">{word}</SpeakWord>

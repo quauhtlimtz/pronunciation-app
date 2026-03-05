@@ -52,7 +52,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens }) {
 
   return (
     <div className="card mb-2.5">
-      <div className="px-4 pt-3.5 pb-2.5 border-b border-gray-200 dark:border-gray-700">
+      <div className="px-4 pt-3.5 pb-2.5 border-b border-gray-100 dark:border-gray-800">
         {tokens && tokens.length > 0
           ? <PhraseAnnotation tokens={tokens} />
           : <div className="text-base mb-1">{phrase}</div>
@@ -67,7 +67,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens }) {
       </div>
 
       {/* step tabs */}
-      <div className="flex border-b border-gray-200 dark:border-gray-700">
+      <div className="flex border-b border-gray-100 dark:border-gray-800">
         {STEPS.map((s, i) => (
           <button key={s} onClick={() => canNav(i) && setStep(s)}
             className={`flex-1 bg-transparent border-none border-b-2 py-2.5 px-1 font-mono text-sm min-h-10 flex items-center justify-center gap-1

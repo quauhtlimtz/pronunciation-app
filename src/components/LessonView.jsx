@@ -63,23 +63,23 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
     <div className="page">
       {/* sticky header + tabs */}
       <div className="sticky top-0 z-50 bg-gray-50 dark:bg-gray-950">
-        <div className="border-b border-gray-200 dark:border-gray-700 px-3 sm:px-4 py-2.5 sm:py-3">
+        <div className="border-b border-gray-100 dark:border-gray-800 px-3 sm:px-4 py-2.5 sm:py-3">
           <div className="flex items-center gap-2">
-            <button className="btn btn-default !px-2.5 !py-1.5 sm:!px-3.5 sm:!py-2" onClick={onBack}><IconBack size="md" /></button>
+            <button className="p-2 rounded cursor-pointer text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 active:opacity-50 transition-colors" onClick={onBack}><IconBack size="md" /></button>
             <div className="flex-1 min-w-0">
               <p className="mono-label hidden sm:block">{def.session}</p>
               <p className="text-sm sm:text-base mt-0.5 truncate">{def.title}</p>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
-              <button className="btn btn-default btn-sm gap-1" onClick={() => load(true)} disabled={loading}>
-                {loading ? "…" : <><IconRefresh size="sm" /> <span className="hidden sm:inline">New</span></>}
+              <button className="p-2 rounded cursor-pointer text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 active:opacity-50 transition-colors disabled:opacity-30" onClick={() => load(true)} disabled={loading}>
+                {loading ? "…" : <IconRefresh size="md" />}
               </button>
               {completed && <span className="mono-dim"><IconCheck size="sm" /></span>}
               {darkToggle}
             </div>
           </div>
         </div>
-        <div className="flex border-b border-gray-200 dark:border-gray-700 pl-1">
+        <div className="flex border-b border-gray-100 dark:border-gray-800 pl-1">
           {TABS.map(t => (
             <button key={t}
               className={`tab-btn flex-1 sm:flex-none ${tab === t ? "tab-btn-active" : ""}`}
@@ -115,7 +115,7 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
             {tab === "theory" && (
               <div>
                 <p className="text-sm text-gray-500 mb-4 leading-relaxed">
-                  {def.subtitle} · tap a card to expand · tap any word to hear it
+                  {def.subtitle}<span className="hidden sm:inline"> · tap a card to expand · tap any word to hear it</span>
                 </p>
                 {content.theory.map((item, i) => <TheoryCard key={i} item={item} />)}
                 <button className="btn btn-primary btn-full mt-4 gap-1" onClick={() => setTab("practice")}>
@@ -214,7 +214,7 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
 
             {tab === "shadowing" && (
               <div>
-                <p className="text-sm text-gray-500 mb-2 leading-relaxed">
+                <p className="text-sm text-gray-500 mb-2 leading-relaxed hidden sm:block">
                   listen, shadow, compare · record yourself imitating the native speaker
                 </p>
                 <StressLegend />

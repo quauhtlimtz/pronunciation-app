@@ -47,7 +47,7 @@ html {
   @apply w-full;
 }
 .btn-ghost {
-  @apply bg-transparent border-gray-200 dark:border-gray-700 text-gray-400;
+  @apply bg-transparent border-gray-100 dark:border-gray-800 text-gray-400;
 }
 
 /* Circle button (play/record) */
@@ -65,7 +65,7 @@ html {
 
 /* Card container */
 .card {
-  @apply border border-gray-200 dark:border-gray-700 rounded overflow-hidden;
+  @apply border border-gray-100 dark:border-gray-800 rounded overflow-hidden;
 }
 
 /* Tab button */
@@ -102,7 +102,7 @@ html {
 }
 .sticky-header {
   @apply sticky top-0 z-50 bg-gray-50 dark:bg-gray-950
-         border-b border-gray-200 dark:border-gray-700 px-4 py-3;
+         border-b border-gray-100 dark:border-gray-800 px-4 py-3;
 }
 
 /* Progress bar */
@@ -115,7 +115,7 @@ html {
 
 /* Section divider */
 .divider {
-  @apply border-t border-gray-200 dark:border-gray-700;
+  @apply border-t border-gray-100 dark:border-gray-800;
 }
 
 /* Option buttons (exercises) */
@@ -131,7 +131,7 @@ html {
   @apply border-gray-900 dark:border-gray-100 text-current;
 }
 .option-default {
-  @apply border-gray-200 dark:border-gray-700 text-gray-500;
+  @apply border-gray-100 dark:border-gray-800 text-gray-500;
 }
 .option-correct {
   @apply border-gray-400 dark:border-gray-500 text-current;

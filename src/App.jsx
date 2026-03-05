@@ -127,7 +127,7 @@ export default function App() {
               American English Pronunciation
             </h1>
             <p className="font-mono text-sm text-gray-400 dark:text-gray-500 mt-2">
-              IPA · Syllables · Shadowing · AI-generated · {done}/{LESSON_DEFS.length} complete
+              <span className="hidden sm:inline">IPA · Syllables · Shadowing · </span>{done}/{LESSON_DEFS.length} complete
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -172,7 +172,7 @@ export default function App() {
             </div>
 
             {/* per-lesson progress */}
-            <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
               <div className="flex flex-wrap gap-1.5">
                 {LESSON_DEFS.map(l => (
                   <span key={l.id} className={`font-mono text-sm px-2 py-0.5 rounded
@@ -186,7 +186,7 @@ export default function App() {
             </div>
 
             {/* actions */}
-            <div className="flex gap-2 mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
               {isAdmin && (
                 <button className="btn btn-default btn-sm" onClick={() => { setShowAdmin(true); window.history.pushState(null, "", "?admin"); }}>
                   Admin
@@ -212,7 +212,7 @@ export default function App() {
                 const isDone = completed[lesson.id];
                 return (
                   <div key={lesson.id}
-                    className="border-b border-gray-200 dark:border-gray-700 px-4 py-3.5 cursor-pointer flex items-center gap-3.5 hover:bg-white dark:hover:bg-gray-900 active:bg-white dark:active:bg-gray-900 transition-colors"
+                    className="border-b border-gray-100 dark:border-gray-800 px-4 py-3.5 cursor-pointer flex items-center gap-3.5 hover:bg-white dark:hover:bg-gray-900 active:bg-white dark:active:bg-gray-900 transition-colors"
                     onClick={() => openLesson(lesson)}>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -232,12 +232,9 @@ export default function App() {
         ))}
 
         {/* coming soon */}
-        <div className="border-t border-gray-200 dark:border-gray-700 pt-5 mb-10">
-          <p className="font-mono text-sm text-gray-400 dark:text-gray-500 leading-loose">
-            More lessons coming as I share my notes<br />
-            <span className="text-gray-300 dark:text-gray-600">· Stress · Intonation · Vowels · Reduced Speech ·</span>
-          </p>
-        </div>
+        <p className="font-mono text-xs text-gray-300 dark:text-gray-600 mt-6 mb-2">
+          More coming · Stress · Intonation · Vowels · Reduced Speech
+        </p>
 
         <Footer />
       </div>
