@@ -7,45 +7,69 @@ import { StressLegend } from "./PhraseAnnotation";
 import { IconBack, IconRefresh, IconCheck, IconArrow, IconClose, IconMic } from "./Icons";
 import { Footer } from "./Footer";
 
-function MicSelector({ deviceId, onChange, permissionGranted }) {
+function MicSelector({ deviceId, onChange, onStreamReady }) {
   const [devices, setDevices] = useState([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [enabled, setEnabled] = useState(false);
 
-  // Auto-load devices once mic permission is granted (from recording)
-  useEffect(() => {
-    if (permissionGranted && devices.length === 0) {
-      navigator.mediaDevices.enumerateDevices().then(all => {
-        setDevices(all.filter(d => d.kind === "audioinput"));
-      });
-    }
-  }, [permissionGranted, devices.length]);
-
-  async function loadDevices() {
+  async function enableMic() {
     setLoading(true);
     try {
+      // Get permission + enumerate devices
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(t => t.stop());
       const all = await navigator.mediaDevices.enumerateDevices();
       const mics = all.filter(d => d.kind === "audioinput");
       setDevices(mics);
-      if (mics.length > 0) setOpen(true);
+      setEnabled(true);
+
+      // Detect actual device and notify parent
+      const track = stream.getAudioTracks()[0];
+      const actualId = track?.getSettings?.()?.deviceId || "";
+      if (actualId) onChange(actualId);
+
+      // Keep stream alive and pass it up
+      onStreamReady(stream);
     } catch { /* permission denied */ }
     finally { setLoading(false); }
+  }
+
+  async function switchDevice(newId) {
+    onChange(newId);
+    setOpen(false);
+    // Open new stream with selected device
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { deviceId: { exact: newId } }
+      });
+      onStreamReady(stream);
+    } catch { /* fallback: keep old stream */ }
   }
 
   const current = devices.find(d => d.deviceId === deviceId);
   const label = current?.label || (deviceId ? "Selected microphone" : "Default microphone");
 
+  if (!enabled) {
+    return (
+      <button
+        className="btn btn-default btn-sm gap-1.5"
+        onClick={enableMic}
+        disabled={loading}
+      >
+        <IconMic size="sm" />
+        <span>{loading ? "…" : "Enable Mic"}</span>
+      </button>
+    );
+  }
+
   return (
     <div className="relative shrink-0">
       <button
         className="btn btn-default btn-sm gap-1.5 text-left max-w-full"
-        onClick={() => devices.length > 0 ? setOpen(!open) : loadDevices()}
-        disabled={loading}
+        onClick={() => setOpen(!open)}
       >
         <IconMic size="sm" />
-        <span className="truncate">{loading ? "…" : label}</span>
+        <span className="truncate">{label}</span>
       </button>
       {open && devices.length > 0 && (
         <>
@@ -57,7 +81,7 @@ function MicSelector({ deviceId, onChange, permissionGranted }) {
                   ${d.deviceId === deviceId
                     ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                     : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50"}`}
-                onClick={() => { onChange(d.deviceId); setOpen(false); }}
+                onClick={() => switchDevice(d.deviceId)}
               >
                 {d.label || `Microphone ${d.deviceId.slice(0, 8)}`}
               </button>
@@ -102,8 +126,16 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
   const timerRef = useRef(null);
   const [confirmAction, setConfirmAction] = useState(null);
   const [micDeviceId, setMicDeviceId] = useState("");
-  const [micPermissionGranted, setMicPermissionGranted] = useState(false);
+  const micStreamRef = useRef(null);
   const recordingsRef = useRef(new Set());
+
+  // Clean up mic stream on unmount
+  useEffect(() => {
+    return () => {
+      micStreamRef.current?.getTracks().forEach(t => t.stop());
+      micStreamRef.current = null;
+    };
+  }, []);
 
   const hasRecordings = useCallback(() => recordingsRef.current.size > 0, []);
 
@@ -329,14 +361,20 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
                   <p className="text-sm text-gray-500 leading-relaxed hidden sm:block pt-1">
                     listen, shadow, compare · record yourself imitating the native speaker
                   </p>
-                  <MicSelector deviceId={micDeviceId} onChange={setMicDeviceId} permissionGranted={micPermissionGranted} />
+                  <MicSelector deviceId={micDeviceId} onChange={setMicDeviceId}
+                    onStreamReady={(stream) => {
+                      // Stop previous stream if switching devices
+                      if (micStreamRef.current && micStreamRef.current !== stream) {
+                        micStreamRef.current.getTracks().forEach(t => t.stop());
+                      }
+                      micStreamRef.current = stream;
+                    }} />
                 </div>
                 <StressLegend />
                 {content.shadowing.map((p, i) => (
                   <ShadowCard key={`${def.id}-${i}-${p.phrase}`}
                     phrase={p.phrase} ipa={p.ipa} syllables={p.syllables} note={p.note} tokens={p.tokens}
-                    micDeviceId={micDeviceId}
-                    onMicDetected={(id) => { setMicDeviceId(id); setMicPermissionGranted(true); }}
+                    micStreamRef={micStreamRef}
                     onRecordingChange={has => handleRecordingChange(p.phrase, has)} />
                 ))}
               </div>

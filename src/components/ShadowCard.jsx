@@ -55,7 +55,7 @@ function MiniSpectrogram({ audioUrl }) {
 
 const STEPS = ["listen", "shadow", "compare"];
 
-export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, onMicDetected, onRecordingChange }) {
+export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef, onRecordingChange }) {
   const [step, setStep]         = useState("listen");
   const [natPlay, setNatPlay]   = useState(false);
   const [rec, setRec]           = useState(false);
@@ -73,7 +73,6 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   const [recReady, setRecReady] = useState(false);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
-  const streamRef = useRef(null);
   const recTimerRef = useRef(null);
 
   // Preload ffmpeg when entering shadow step
@@ -91,12 +90,11 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
     onRecordingChange?.(!!recUrl);
   }, [recUrl]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount (stream is owned by LessonView, don't stop it here)
   useEffect(() => {
     return () => {
       clearInterval(recTimerRef.current);
       if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
-      streamRef.current?.getTracks().forEach(t => t.stop());
     };
   }, []);
 
@@ -152,80 +150,63 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
 
   // ─── Recording (same approach as test page) ────────────────────────────
 
+  const micReady = !!micStreamRef?.current;
+
   const startRec = useCallback(async () => {
+    const stream = micStreamRef?.current;
+    if (!stream) {
+      setRecError("Enable your microphone first.");
+      return;
+    }
+
     setRecError(null);
     setRecDuration(0);
     setRecReady(false);
 
-    try {
-      // 1. getUserMedia
-      const constraints = micDeviceId
-        ? { audio: { deviceId: { exact: micDeviceId } } }
-        : { audio: true };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      streamRef.current = stream;
+    // Create MediaRecorder from the already-open stream
+    const recorder = new MediaRecorder(stream);
+    mediaRecorderRef.current = recorder;
+    chunksRef.current = [];
 
-      // Detect actual device for mic selector
-      const track = stream.getAudioTracks()[0];
-      const actualId = track?.getSettings?.()?.deviceId;
-      if (actualId && onMicDetected) onMicDetected(actualId);
-
-      // 2. Create MediaRecorder and start it
-      const recorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = recorder;
-      chunksRef.current = [];
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      recorder.onstop = () => {
-        clearInterval(recTimerRef.current);
-        const blob = new Blob(chunksRef.current, { type: recorder.mimeType });
-        if (blob.size < 100) {
-          setRecError("No audio captured — check your microphone and try again.");
-        } else {
-          trimSilence(blob).then(url => {
-            setRecUrl(url);
-            setRecError(null);
-          }).catch(() => {
-            setRecUrl(URL.createObjectURL(blob));
-            setRecError(null);
-          });
-        }
-        setRec(false);
-        // Release mic
-        stream.getTracks().forEach(t => t.stop());
-        streamRef.current = null;
-        mediaRecorderRef.current = null;
-      };
-
-      recorder.start();
-
-      // 3. 300ms warmup for Safari, then countdown
-      await new Promise(r => setTimeout(r, 300));
-
-      for (let i = 3; i >= 1; i--) {
-        setCountdown(i);
-        await new Promise(r => setTimeout(r, 600));
-      }
-      setCountdown(0);
-      setRec(true);
-
-      // Duration timer (from when user starts speaking)
-      const t0 = Date.now();
-      recTimerRef.current = setInterval(() => {
-        setRecDuration(Math.round((Date.now() - t0) / 1000));
-      }, 500);
-    } catch (e) {
-      setCountdown(0);
-      setRec(false);
-      if (e?.name === "NotAllowedError" || e?.name === "PermissionDeniedError") {
-        setRecError("Microphone access denied — enable it in browser settings.");
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunksRef.current.push(e.data);
+    };
+    recorder.onstop = () => {
+      clearInterval(recTimerRef.current);
+      const blob = new Blob(chunksRef.current, { type: recorder.mimeType });
+      if (blob.size < 100) {
+        setRecError("No audio captured — check your microphone and try again.");
       } else {
-        setRecError(`Mic error: ${e?.message || "could not access microphone"}. Try again.`);
+        trimSilence(blob).then(url => {
+          setRecUrl(url);
+          setRecError(null);
+        }).catch(() => {
+          setRecUrl(URL.createObjectURL(blob));
+          setRecError(null);
+        });
       }
+      setRec(false);
+      mediaRecorderRef.current = null;
+    };
+
+    recorder.start();
+
+    // 300ms warmup for Safari, then countdown
+    await new Promise(r => setTimeout(r, 300));
+
+    for (let i = 3; i >= 1; i--) {
+      setCountdown(i);
+      await new Promise(r => setTimeout(r, 600));
     }
-  }, [micDeviceId, onMicDetected]);
+    setCountdown(0);
+    setRec(true);
+
+    // Duration timer (from when user starts speaking)
+    const t0 = Date.now();
+    recTimerRef.current = setInterval(() => {
+      setRecDuration(Math.round((Date.now() - t0) / 1000));
+    }, 500);
+  }, [micStreamRef]);
 
   const stopRec = useCallback(() => {
     if (mediaRecorderRef.current?.state === "recording") {
@@ -247,8 +228,6 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
     setBothPlay(false); setRecDuration(0); setRecError(null); setRecReady(false);
     stopSpeak(); natAudioRef.current?.pause(); audioRef.current?.pause();
     if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
-    streamRef.current?.getTracks().forEach(t => t.stop());
-    streamRef.current = null;
   }
 
   const si = STEPS.indexOf(step);
@@ -297,15 +276,15 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
         {step === "shadow" && (
           <div className="flex flex-col items-center justify-center gap-2.5" style={{ minHeight: 140 }}>
             <div className="flex items-center gap-2">
-              <button className={`circ circ-sm ${rec ? "circ-rec" : ""} ${countdown ? "opacity-50 pointer-events-none" : ""}`}
-                onClick={rec ? stopRec : startRec} disabled={!!countdown}>
+              <button className={`circ circ-sm ${rec ? "circ-rec" : ""} ${countdown || !micReady ? "opacity-50 pointer-events-none" : ""}`}
+                onClick={rec ? stopRec : startRec} disabled={!!countdown || (!rec && !micReady)}>
                 {countdown ? <span className="text-lg font-mono font-bold">{countdown}</span> : rec ? <IconStop size="md" /> : <IconMic size="md" />}
               </button>
               <div className="text-left">
                 <p className={`text-sm ${rec ? "text-amber-700 dark:text-amber-500" : countdown ? "text-gray-400" : "text-gray-500"}`}>
                   {countdown ? "get ready…" : rec
                     ? <><span className="font-mono tabular-nums">{recDuration}s</span> · recording…</>
-                    : "tap to record"}
+                    : micReady ? "tap to record" : "enable mic first"}
                 </p>
                 {!rec && !countdown && !recUrl && (
                   <button className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer bg-transparent border-none p-0" onClick={natPlay ? stopNat : playNat}>
