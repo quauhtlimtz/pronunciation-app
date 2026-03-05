@@ -1,9 +1,8 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { speak, stopSpeak, getTtsUrl } from "../services/tts";
 import { useWavesurfer } from "@wavesurfer/react";
-import WaveSurfer from "wavesurfer.js";
-import RecordPlugin from "wavesurfer.js/dist/plugins/record.esm.js";
 import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram.esm.js";
+import { useVoiceRecorder } from "react-voice-recorder-pro";
 import { PhraseAnnotation } from "./PhraseAnnotation";
 import { PitchOverlay } from "./PitchOverlay";
 import { IconPlay, IconPause, IconStop, IconMic, IconCheck, IconArrow, IconRefresh } from "./Icons";
@@ -60,12 +59,10 @@ const STEPS = ["listen", "shadow", "compare"];
 export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, onMicDetected, onRecordingChange }) {
   const [step, setStep]         = useState("listen");
   const [natPlay, setNatPlay]   = useState(false);
-  const [rec, setRec]           = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [recUrl, setRecUrl]     = useState(null);
   const [recDuration, setRecDuration] = useState(0);
   const [myPlay, setMyPlay]     = useState(false);
-  const [denied, setDenied]     = useState(false);
   const [recError, setRecError] = useState(null);
   const [natUrl, setNatUrl]     = useState(null);
   const audioRef   = useRef(null);
@@ -74,48 +71,15 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   const [natVol, setNatVol]     = useState(1);
   const [userVol, setUserVol]   = useState(1);
   const [recReady, setRecReady] = useState(false);
-
-  const recWaveRef = useRef(null);
-  const recorderRef = useRef(null);
-  const wsRef = useRef(null);
-  const mediaRecRef = useRef(null);
   const recTimerRef = useRef(null);
 
-  // Initialize wavesurfer + Record plugin (for waveform visualization only)
+  const recorder = useVoiceRecorder({
+    autoEnableMicrophone: false,
+  });
+
+  // Preload ffmpeg when entering shadow step
   useEffect(() => {
-    if (step !== "shadow" || !recWaveRef.current) return;
-
-    const ws = WaveSurfer.create({
-      container: recWaveRef.current,
-      waveColor: "#d97706",
-      progressColor: "#d97706",
-      height: 64,
-      barWidth: 2,
-      barGap: 1,
-      barRadius: 2,
-      cursorWidth: 0,
-      normalize: true,
-    });
-
-    const recorder = ws.registerPlugin(RecordPlugin.create({
-      scrollingWaveform: true,
-      scrollingWaveformWindow: 6,
-      renderRecordedAudio: false,
-    }));
-
-    wsRef.current = ws;
-    recorderRef.current = recorder;
-    preloadFFmpeg();
-
-    return () => {
-      clearInterval(recTimerRef.current);
-      if (mediaRecRef.current?.state === "recording") mediaRecRef.current.stop();
-      mediaRecRef.current = null;
-      recorder.stopMic();
-      ws.destroy();
-      wsRef.current = null;
-      recorderRef.current = null;
-    };
+    if (step === "shadow") preloadFFmpeg();
   }, [step]);
 
   useEffect(() => {
@@ -182,55 +146,25 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   useEffect(() => { if (audioRef.current) audioRef.current.volume = userVol; }, [userVol]);
 
   const startRec = useCallback(async () => {
-    if (!recorderRef.current) return;
     setRecError(null);
     setRecDuration(0);
     setRecReady(false);
 
     try {
-      // 1. Open mic FIRST (getUserMedia + live waveform) — this is the slow part
-      const constraints = micDeviceId ? { deviceId: { exact: micDeviceId } } : undefined;
-      const stream = await recorderRef.current.startMic(constraints);
+      // 1. Enable mic (getUserMedia — the slow part)
+      if (!recorder.isMicrophoneEnabled) {
+        await recorder.enableMicrophone();
+      }
 
-      // Detect actual device for mic selector
-      try {
-        const track = stream.getAudioTracks()[0];
-        const actualId = track?.getSettings?.()?.deviceId;
-        if (actualId && onMicDetected) onMicDetected(actualId);
-      } catch {}
-
-      // 2. Countdown (mic is already live, waveform visible)
+      // 2. Countdown (mic is warm)
       for (let i = 3; i >= 1; i--) {
         setCountdown(i);
         await new Promise(r => setTimeout(r, 600));
       }
       setCountdown(0);
 
-      // 3. Start MediaRecorder on the SAME stream — instant, no delay
-      const mr = new MediaRecorder(stream);
-      const chunks = [];
-      mr.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-      mr.onstop = () => {
-        clearInterval(recTimerRef.current);
-        const blob = new Blob(chunks, { type: mr.mimeType });
-        if (blob.size < 100) {
-          setRecError("No audio captured — check your microphone and try again.");
-        } else {
-          trimSilence(blob).then(url => {
-            setRecUrl(url);
-            setRecError(null);
-          }).catch(() => {
-            setRecUrl(URL.createObjectURL(blob));
-            setRecError(null);
-          });
-        }
-        setRec(false);
-        recorderRef.current?.stopMic();
-        mediaRecRef.current = null;
-      };
-      mediaRecRef.current = mr;
-      mr.start();
-      setRec(true);
+      // 3. Start recording (instant — mic already open)
+      recorder.startRecording();
 
       // Duration timer
       const t0 = Date.now();
@@ -239,21 +173,29 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
       }, 500);
     } catch (e) {
       setCountdown(0);
-      setRec(false);
-      mediaRecRef.current = null;
-      if (e?.name === "NotAllowedError" || e?.name === "PermissionDeniedError") {
-        setDenied(true);
-      } else {
-        setRecError(`Mic error: ${e?.message || "could not access microphone"}. Try again.`);
-      }
+      setRecError(`Mic error: ${e?.message || "could not access microphone"}. Try again.`);
     }
-  }, [micDeviceId, onMicDetected]);
+  }, [recorder]);
 
-  const stopRec = useCallback(() => {
-    if (mediaRecRef.current?.state === "recording") {
-      mediaRecRef.current.stop();
+  const stopRec = useCallback(async () => {
+    clearInterval(recTimerRef.current);
+    try {
+      const blob = await recorder.stopRecording();
+      if (!blob || blob.size < 100) {
+        setRecError("No audio captured — check your microphone and try again.");
+        return;
+      }
+      // Trim silence via ffmpeg
+      try {
+        const url = await trimSilence(blob);
+        setRecUrl(url);
+      } catch {
+        setRecUrl(URL.createObjectURL(blob));
+      }
+    } catch (e) {
+      setRecError(`Recording error: ${e?.message || "unknown"}`);
     }
-  }, []);
+  }, [recorder]);
 
   function playMine() {
     if (!audioRef.current || !recReady) return;
@@ -264,7 +206,12 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
     a.play();
   }
 
-  function reset() { setStep("listen"); setRecUrl(null); setNatUrl(null); setRec(false); setNatPlay(false); setMyPlay(false); setBothPlay(false); setRecDuration(0); setRecError(null); setRecReady(false); stopSpeak(); natAudioRef.current?.pause(); audioRef.current?.pause(); }
+  function reset() {
+    setStep("listen"); setRecUrl(null); setNatUrl(null); setNatPlay(false); setMyPlay(false);
+    setBothPlay(false); setRecDuration(0); setRecError(null); setRecReady(false);
+    stopSpeak(); natAudioRef.current?.pause(); audioRef.current?.pause();
+    recorder.reset();
+  }
 
   const si = STEPS.indexOf(step);
   const canNav = i => i <= si || (i === 2 && recUrl);
@@ -302,38 +249,45 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
             <p className="text-sm text-gray-500">{natPlay ? "playing…" : "tap to hear native speaker"}</p>
             <button
               className="btn btn-primary min-w-[12.5rem] gap-1"
-              disabled={!micDeviceId}
               onClick={() => setStep("shadow")}
             >
               ready to shadow <IconArrow size="sm" />
             </button>
-            {!micDeviceId && <p className="text-xs text-gray-400">select a microphone first</p>}
           </div>
         )}
 
         {step === "shadow" && (
           <div className="flex flex-col items-center justify-center gap-2.5" style={{ minHeight: 140 }}>
             <div className="flex items-center gap-2">
-              <button className={`circ circ-sm ${rec ? "circ-rec" : ""} ${countdown ? "opacity-50 pointer-events-none" : ""}`} onClick={rec ? stopRec : startRec} disabled={!!countdown}>
-                {countdown ? <span className="text-lg font-mono font-bold">{countdown}</span> : rec ? <IconStop size="md" /> : <IconMic size="md" />}
+              <button className={`circ circ-sm ${recorder.isRecording ? "circ-rec" : ""} ${countdown ? "opacity-50 pointer-events-none" : ""}`}
+                onClick={recorder.isRecording ? stopRec : startRec} disabled={!!countdown}>
+                {countdown ? <span className="text-lg font-mono font-bold">{countdown}</span> : recorder.isRecording ? <IconStop size="md" /> : <IconMic size="md" />}
               </button>
               <div className="text-left">
-                <p className={`text-sm ${rec ? "text-amber-700 dark:text-amber-500" : countdown ? "text-gray-400" : "text-gray-500"}`}>
-                  {countdown ? "get ready…" : rec
+                <p className={`text-sm ${recorder.isRecording ? "text-amber-700 dark:text-amber-500" : countdown ? "text-gray-400" : "text-gray-500"}`}>
+                  {countdown ? "get ready…" : recorder.isRecording
                     ? <><span className="font-mono tabular-nums">{recDuration}s</span> · recording…</>
                     : "tap to record"}
                 </p>
-                {!rec && !countdown && !recUrl && (
+                {!recorder.isRecording && !countdown && !recUrl && (
                   <button className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer bg-transparent border-none p-0" onClick={natPlay ? stopNat : playNat}>
                     {natPlay ? "stop native" : "replay native"}
                   </button>
                 )}
               </div>
             </div>
-            {denied && <p className="text-sm text-amber-700 dark:text-amber-500 text-center">Microphone access denied — enable it in browser settings.</p>}
-            <div ref={recWaveRef} className="w-full rounded-md overflow-hidden" style={{ minHeight: 48 }} />
+            {recorder.error && <p className="text-sm text-amber-700 dark:text-amber-500 text-center">{recorder.error}</p>}
+
+            {/* Audio level bar */}
+            {recorder.isRecording && (
+              <div className="w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-full bg-amber-500 rounded-full transition-all duration-75"
+                  style={{ width: `${Math.min(recorder.audioLevel * 100, 100)}%` }} />
+              </div>
+            )}
+
             {recError && <p className="text-sm text-amber-700 dark:text-amber-500 text-center">{recError}</p>}
-            {recUrl && !rec && (
+            {recUrl && !recorder.isRecording && (
               <div className="flex items-center gap-2 w-full">
                 <button className="btn btn-primary flex-1 gap-1" onClick={() => setStep("compare")}>
                   compare <IconArrow size="sm" />
@@ -431,7 +385,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
               transition={{ duration: 0.3, delay: 0.55 }}
               className="flex gap-2 flex-wrap"
             >
-              <button className="btn btn-default gap-1" onClick={() => { stopBoth(); setRecUrl(null); setNatUrl(null); setRecDuration(0); setRecError(null); setRecReady(false); setStep("shadow"); }}><IconRefresh size="sm" /> Re-record</button>
+              <button className="btn btn-default gap-1" onClick={() => { stopBoth(); setRecUrl(null); setNatUrl(null); setRecDuration(0); setRecError(null); setRecReady(false); recorder.reset(); setStep("shadow"); }}><IconRefresh size="sm" /> Re-record</button>
               <button className="btn btn-ghost" onClick={reset}>Start over</button>
             </motion.div>
           </div>
