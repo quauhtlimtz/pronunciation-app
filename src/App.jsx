@@ -138,19 +138,19 @@ export default function App() {
       {/* header */}
       <div className="px-4 pt-5 pb-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-normal tracking-tight leading-tight">
-              American English Pronunciation
-            </h1>
-            <p className="font-mono text-sm text-gray-400 dark:text-gray-500 mt-2">
-              <span className="hidden sm:inline">IPA · Syllables · Shadowing · </span>{done}/{LESSON_DEFS.length} complete
-            </p>
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <img src="/favicon.svg" alt="" className="w-9 h-9 shrink-0" />
+            <div>
+              <h1 className="text-xl font-normal tracking-tight leading-tight">Pronunce</h1>
+              <p className="font-mono text-sm text-gray-400 dark:text-gray-500 mt-0.5">
+                <span className="hidden sm:inline">IPA · Syllables · Shadowing · </span>{done}/{LESSON_DEFS.length} complete
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <ThemeToggle dark={dark} setDark={setDark} />
           </div>
         </div>
-        <p className="font-mono text-xs text-gray-300 dark:text-gray-600 mt-1">——</p>
       </div>
 
       {/* list */}
