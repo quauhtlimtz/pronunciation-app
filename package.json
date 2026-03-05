@@ -13,6 +13,8 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
     "@heroicons/react": "^2.2.0",
     "@supabase/supabase-js": "^2.98.0",
     "@wavesurfer/react": "^1.0.12",
