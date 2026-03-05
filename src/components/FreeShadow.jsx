@@ -129,13 +129,14 @@ export function FreeShadow({ onBack, darkToggle }) {
 
       <div className="max-w-[40rem] mx-auto px-4 pt-5 pb-safe flex-1 w-full">
         <div className="flex gap-2 mb-4">
-          <input
-            type="text"
+          <textarea
             value={phrase}
             onChange={e => setPhrase(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && go()}
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); go(); } }}
             placeholder="Type any English phrase…"
-            className="flex-1 px-3 py-2.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-gray-400 dark:focus:border-gray-500"
+            maxLength={250}
+            rows={2}
+            className="flex-1 px-3 py-2.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-gray-400 dark:focus:border-gray-500 resize-none"
             disabled={analyzing}
           />
           <button className="btn btn-primary btn-sm gap-1" onClick={go} disabled={!phrase.trim() || analyzing}>
