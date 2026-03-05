@@ -80,6 +80,58 @@ function parseAnthropicResponse(data) {
 
 // ─── Core fetch ──────────────────────────────────────────────────────────────
 
+const TIMEOUT_MS = 30_000;
+const MAX_RETRIES = 3;
+const RETRY_DELAYS = [1_000, 3_000, 5_000];
+
+function fetchWithTimeout(url, options, timeoutMs = TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timer));
+}
+
+async function callAPI(provider, body) {
+  let lastError;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      const delay = RETRY_DELAYS[attempt - 1] || 5_000;
+      console.warn(`API retry ${attempt}/${MAX_RETRIES} in ${delay}ms…`);
+      await new Promise(r => setTimeout(r, delay));
+    }
+
+    try {
+      const res = await fetchWithTimeout(provider.url, {
+        method: "POST",
+        headers: provider.headers,
+        body: JSON.stringify(body),
+      });
+
+      // Retry on server errors (5xx) and rate limits (429)
+      if (res.status >= 500 || res.status === 429) {
+        lastError = new Error(`API error ${res.status}`);
+        continue;
+      }
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(`API error ${res.status}: ${JSON.stringify(data)}`);
+      return data;
+    } catch (e) {
+      lastError = e;
+      // Retry on timeout or network errors, throw on other errors
+      if (e.name === "AbortError") {
+        lastError = new Error("Request timed out");
+      } else if (!(e instanceof TypeError)) {
+        // Not a network error — don't retry
+        throw e;
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 export async function fetchFromAPI(lessonDef) {
   const provider = PROVIDERS[ACTIVE_PROVIDER];
 
@@ -87,14 +139,7 @@ export async function fetchFromAPI(lessonDef) {
     ? buildAnthropicBody(provider, lessonDef.prompt)
     : buildOpenAIBody(provider, lessonDef.prompt);
 
-  const res = await fetch(provider.url, {
-    method: "POST",
-    headers: provider.headers,
-    body: JSON.stringify(body),
-  });
-
-  const data = await res.json();
-  if (!res.ok) throw new Error(`API error ${res.status}: ${JSON.stringify(data)}`);
+  const data = await callAPI(provider, body);
 
   const text = provider.format === "anthropic"
     ? parseAnthropicResponse(data)

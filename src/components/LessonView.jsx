@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getContent } from "../services/content";
 import { TheoryCard } from "./TheoryCard";
 import { SpeakWord } from "./SpeakWord";
@@ -17,9 +17,13 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
   const [score, setScore]     = useState(null);
   const [exItems, setEx]      = useState([]);
   const [fromCache, setFromCache] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const timerRef = useRef(null);
 
   async function load(force = false) {
-    setLoading(true); setError(null);
+    setLoading(true); setError(null); setElapsed(0);
+    clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => setElapsed(s => s + 1), 1000);
     try {
       const data = await getContent(def, { user, force });
       setContent(data);
@@ -27,10 +31,13 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
       setAnswers({}); setSub(false); setScore(null);
       setFromCache(!force);
     } catch (e) { setError(e.message); }
-    finally { setLoading(false); }
+    finally { clearInterval(timerRef.current); setLoading(false); }
   }
 
-  useEffect(() => { load(false); }, [def.id]);
+  useEffect(() => {
+    load(false);
+    return () => clearInterval(timerRef.current);
+  }, [def.id]);
 
   function submitEx() {
     let c = 0;
@@ -96,7 +103,10 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
                   style={{ animation: `pulse-dot 1.2s ease-in-out ${i * 0.2}s infinite` }} />
               ))}
             </div>
-            <p className="text-sm text-gray-400 dark:text-gray-500 tracking-wide">Generating content…</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500 tracking-wide">
+              {elapsed < 5 ? "Loading…" : elapsed < 15 ? "Generating content…" : "Still working, retrying if needed…"}
+            </p>
+            {elapsed >= 5 && <p className="text-xs text-gray-300 dark:text-gray-600 tabular-nums">{elapsed}s</p>}
           </div>
         )}
 
