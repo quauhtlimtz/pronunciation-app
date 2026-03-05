@@ -55,7 +55,7 @@ function MiniSpectrogram({ audioUrl }) {
 
 const STEPS = ["listen", "shadow", "compare"];
 
-export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef, onRecordingChange }) {
+export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef, savedDone, onRecordingChange }) {
   const [step, setStep]         = useState("listen");
   const [natPlay, setNatPlay]   = useState(false);
   const [rec, setRec]           = useState(false);
@@ -236,12 +236,17 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
   return (
     <div className="card mb-2.5">
       <div className="px-4 pt-3.5 pb-2.5 border-b border-gray-100 dark:border-gray-800">
-        {tokens && tokens.length > 0
-          ? <PhraseAnnotation tokens={tokens} />
-          : <div className="text-base mb-1">{phrase}</div>
-        }
-        <div className="mono-muted mt-2">{ipa}</div>
-        {note && <div className="mono-dim mt-1 leading-relaxed">{note}</div>}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            {tokens && tokens.length > 0
+              ? <PhraseAnnotation tokens={tokens} />
+              : <div className="text-base mb-1">{phrase}</div>
+            }
+            <div className="mono-muted mt-2">{ipa}</div>
+            {note && <div className="mono-dim mt-1 leading-relaxed">{note}</div>}
+          </div>
+          {(savedDone || recUrl) && <span className="text-gray-400 shrink-0 mt-1"><IconCheck size="sm" /></span>}
+        </div>
       </div>
 
       {/* step tabs */}

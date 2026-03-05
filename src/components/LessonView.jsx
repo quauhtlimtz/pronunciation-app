@@ -112,7 +112,7 @@ function ConfirmDialog({ onConfirm, onCancel }) {
   );
 }
 
-export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab = "theory", onTabChange, user }) {
+export function LessonView({ def, onBack, completed, progress: lessonProgress, onComplete, onShadowingPhrase, darkToggle, tab = "theory", onTabChange, user }) {
   const setTab = onTabChange || (() => {});
   const [content, setContent] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -139,18 +139,17 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
 
   const hasRecordings = useCallback(() => recordingsRef.current.size > 0, []);
 
-  const handleRecordingChange = useCallback((phrase, has) => {
-    if (has) recordingsRef.current.add(phrase);
-    else recordingsRef.current.delete(phrase);
-
-    // Auto-complete when all shadowing phrases have been recorded
-    if (content?.shadowing && !completed) {
-      const total = content.shadowing.length;
-      if (recordingsRef.current.size >= total) {
-        onComplete();
+  const handleRecordingChange = useCallback((phraseIndex, has) => {
+    if (has) {
+      recordingsRef.current.add(phraseIndex);
+      // Save partial progress
+      if (content?.shadowing) {
+        onShadowingPhrase?.(phraseIndex, content.shadowing.length);
       }
+    } else {
+      recordingsRef.current.delete(phraseIndex);
     }
-  }, [content, completed, onComplete]);
+  }, [content, onShadowingPhrase]);
 
   // Warn on browser reload/close — recording blobs live in memory and will be lost.
   // The dialog text is controlled by the browser (not customizable in modern Safari/Chrome).
@@ -379,12 +378,16 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
                     }} />
                 </div>
                 <StressLegend />
-                {content.shadowing.map((p, i) => (
-                  <ShadowCard key={`${def.id}-${i}-${p.phrase}`}
-                    phrase={p.phrase} ipa={p.ipa} syllables={p.syllables} note={p.note} tokens={p.tokens}
-                    micStreamRef={micStreamRef}
-                    onRecordingChange={has => handleRecordingChange(p.phrase, has)} />
-                ))}
+                {content.shadowing.map((p, i) => {
+                  const savedDone = lessonProgress?.shadowing_done || [];
+                  return (
+                    <ShadowCard key={`${def.id}-${i}-${p.phrase}`}
+                      phrase={p.phrase} ipa={p.ipa} syllables={p.syllables} note={p.note} tokens={p.tokens}
+                      micStreamRef={micStreamRef}
+                      savedDone={savedDone.includes(i)}
+                      onRecordingChange={has => handleRecordingChange(i, has)} />
+                  );
+                })}
               </div>
             )}
           </div>

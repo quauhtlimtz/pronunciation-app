@@ -56,14 +56,16 @@ export async function ensureProfile(user) {
 // ─── User progress ──────────────────────────────────────────────────────────
 
 export async function saveProgress(userId, lessonId, data) {
-  const { error } = await supabase.from("progress").upsert({
+  const row = {
     user_id: userId,
     lesson_id: lessonId,
     completed: data.completed || false,
     score: data.score ?? null,
     attempts: data.attempts ?? 1,
     updated_at: new Date().toISOString(),
-  }, { onConflict: "user_id,lesson_id" });
+  };
+  if (data.shadowing_done !== undefined) row.shadowing_done = data.shadowing_done;
+  const { error } = await supabase.from("progress").upsert(row, { onConflict: "user_id,lesson_id" });
   if (error) console.error("saveProgress:", error);
 }
 
