@@ -113,6 +113,10 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   const [recError, setRecError] = useState(null);
   const [natUrl, setNatUrl]     = useState(null);
   const audioRef   = useRef(null);
+  const natAudioRef = useRef(null);
+  const [bothPlay, setBothPlay] = useState(false);
+  const [natVol, setNatVol]     = useState(1);
+  const [userVol, setUserVol]   = useState(1);
 
   // Wavesurfer Record plugin for live waveform (mic visualization only)
   // We manage MediaRecorder ourselves for instant start
@@ -172,6 +176,55 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   const playNat  = () => { setNatPlay(true);  speak(phrase, () => setNatPlay(false)); };
   const stopNat  = () => { stopSpeak(); setNatPlay(false); };
   const stopMine = () => { audioRef.current?.pause(); setMyPlay(false); };
+
+  // Play native via <audio> element (for compare step — respects volume slider)
+  const playNatAudio = useCallback(() => {
+    if (!natAudioRef.current || !natUrl) return;
+    const a = natAudioRef.current;
+    a.currentTime = 0;
+    a.volume = natVol;
+    setNatPlay(true);
+    a.onended = () => setNatPlay(false);
+    a.play();
+  }, [natUrl, natVol]);
+  const stopNatAudio = useCallback(() => {
+    natAudioRef.current?.pause();
+    setNatPlay(false);
+  }, []);
+
+  // Simultaneous playback
+  const stopBoth = useCallback(() => {
+    natAudioRef.current?.pause();
+    audioRef.current?.pause();
+    setBothPlay(false);
+    setNatPlay(false);
+    setMyPlay(false);
+  }, []);
+
+  const playBoth = useCallback(() => {
+    if (!natAudioRef.current || !audioRef.current || !natUrl || !recUrl) return;
+    const na = natAudioRef.current;
+    const ua = audioRef.current;
+    na.currentTime = 0;
+    ua.currentTime = 0;
+    na.volume = natVol;
+    ua.volume = userVol;
+    setBothPlay(true);
+    setNatPlay(true);
+    setMyPlay(true);
+
+    let ended = 0;
+    const onEnd = () => { ended++; if (ended >= 2) stopBoth(); };
+    na.onended = onEnd;
+    ua.onended = onEnd;
+
+    na.play();
+    ua.play();
+  }, [natUrl, recUrl, natVol, userVol, stopBoth]);
+
+  // Sync volume changes to audio elements
+  useEffect(() => { if (natAudioRef.current) natAudioRef.current.volume = natVol; }, [natVol]);
+  useEffect(() => { if (audioRef.current) audioRef.current.volume = userVol; }, [userVol]);
 
   const startRec = useCallback(async () => {
     if (!recorderRef.current) return;
@@ -274,7 +327,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
     else a.load();
   }
 
-  function reset() { setStep("listen"); setRecUrl(null); setNatUrl(null); setRec(false); setNatPlay(false); setMyPlay(false); setRecDuration(0); setRecError(null); stopSpeak(); }
+  function reset() { setStep("listen"); setRecUrl(null); setNatUrl(null); setRec(false); setNatPlay(false); setMyPlay(false); setBothPlay(false); setRecDuration(0); setRecError(null); stopSpeak(); natAudioRef.current?.pause(); audioRef.current?.pause(); }
 
   const si = STEPS.indexOf(step);
   const canNav = i => i <= si || (i === 2 && recUrl);
@@ -358,23 +411,47 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
         )}
 
         {recUrl && <audio ref={audioRef} src={recUrl} className="hidden" />}
+        {natUrl && <audio ref={natAudioRef} src={natUrl} className="hidden" />}
 
         {step === "compare" && (
           <div className="flex flex-col gap-3.5">
 
-            {/* Play buttons */}
+            {/* Play buttons + volume */}
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, ease: "easeOut" }}
-              className="grid grid-cols-2 gap-2.5"
+              className="flex flex-col gap-2.5"
             >
-              <button className="btn btn-default gap-1 w-full" onClick={natPlay ? stopNat : playNat}>
-                {natPlay ? <><IconPause size="sm" /> pause native</> : <><IconPlay size="sm" /> play native</>}
+              <div className="grid grid-cols-2 gap-2.5">
+                <button className="btn btn-default gap-1 w-full" onClick={natPlay ? stopNatAudio : playNatAudio}>
+                  {natPlay ? <><IconPause size="sm" /> native</> : <><IconPlay size="sm" /> native</>}
+                </button>
+                <button className="btn btn-default gap-1 w-full" onClick={myPlay ? stopMine : playMine}>
+                  {myPlay ? <><IconPause size="sm" /> yours</> : <><IconPlay size="sm" /> yours</>}
+                </button>
+              </div>
+              <button className={`btn ${bothPlay ? "btn-primary" : "btn-default"} gap-1 w-full`}
+                onClick={bothPlay ? stopBoth : playBoth}
+                disabled={!natUrl || !recUrl}>
+                {bothPlay ? <><IconPause size="sm" /> stop both</> : <><IconPlay size="sm" /> play both</>}
               </button>
-              <button className="btn btn-default gap-1 w-full" onClick={myPlay ? stopMine : playMine}>
-                {myPlay ? <><IconPause size="sm" /> pause yours</> : <><IconPlay size="sm" /> play yours</>}
-              </button>
+              {natUrl && recUrl && (
+                <div className="grid grid-cols-2 gap-2.5">
+                  <label className="flex items-center gap-2 text-xs text-gray-500 font-mono">
+                    native
+                    <input type="range" min="0" max="1" step="0.05" value={natVol}
+                      onChange={e => setNatVol(+e.target.value)}
+                      className="flex-1 h-1 accent-gray-500 cursor-pointer" />
+                  </label>
+                  <label className="flex items-center gap-2 text-xs text-gray-500 font-mono">
+                    you
+                    <input type="range" min="0" max="1" step="0.05" value={userVol}
+                      onChange={e => setUserVol(+e.target.value)}
+                      className="flex-1 h-1 accent-amber-600 cursor-pointer" />
+                  </label>
+                </div>
+              )}
             </motion.div>
 
             <motion.div
@@ -416,7 +493,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
               transition={{ duration: 0.3, delay: 0.55 }}
               className="flex gap-2 flex-wrap"
             >
-              <button className="btn btn-default gap-1" onClick={() => { setRecUrl(null); setNatUrl(null); setRecDuration(0); setRecError(null); setMyPlay(false); setStep("shadow"); }}><IconRefresh size="sm" /> Re-record</button>
+              <button className="btn btn-default gap-1" onClick={() => { stopBoth(); setRecUrl(null); setNatUrl(null); setRecDuration(0); setRecError(null); setStep("shadow"); }}><IconRefresh size="sm" /> Re-record</button>
               <button className="btn btn-ghost" onClick={reset}>Start over</button>
             </motion.div>
           </div>
