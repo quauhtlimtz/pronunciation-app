@@ -193,6 +193,42 @@ export async function analyzePhrase(phrase) {
   return JSON.parse(clean);
 }
 
+const TOPIC_PROMPT = `Generate a natural English paragraph (3-5 sentences, conversational tone) about the following topic. Then analyze it for pronunciation practice.
+
+Return a JSON object with:
+- "phrase": the generated paragraph
+- "ipa": full IPA transcription
+- "syllables": syllable breakdown with stress marks
+- "note": key pronunciation tips for this paragraph (linking, reductions, stress patterns)
+- "tokens": array of word objects, each with:
+  - "t": the word text
+  - "s": sentence-level stress: 2 = primary, 1 = secondary, 0 = unstressed
+  - "lk": true when this word links to the next
+
+Topic: `;
+
+export async function generateTopicPhrase(topic) {
+  const provider = PROVIDERS[ACTIVE_PROVIDER];
+  const prompt = TOPIC_PROMPT + JSON.stringify(topic);
+
+  const body = provider.format === "anthropic"
+    ? buildAnthropicBody(provider, prompt)
+    : buildOpenAIBody(provider, prompt);
+
+  const data = await callAPI(provider, body);
+
+  const text = provider.format === "anthropic"
+    ? parseAnthropicResponse(data)
+    : parseOpenAIResponse(data);
+
+  const clean = text
+    .replace(/<think>[\s\S]*?<\/think>/g, "")
+    .replace(/```json|```/g, "")
+    .trim();
+
+  return JSON.parse(clean);
+}
+
 export async function generateContent(lessonDef, force = false) {
   if (!force) {
     const cached = cacheGet(lessonDef.id);
