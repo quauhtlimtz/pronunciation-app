@@ -3,6 +3,7 @@ import { speak, stopSpeak, getTtsUrl } from "../services/tts";
 import { useWavesurfer } from "@wavesurfer/react";
 import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram.esm.js";
 import { PhraseAnnotation } from "./PhraseAnnotation";
+import { PitchOverlay } from "./PitchOverlay";
 import { IconPlay, IconPause, IconStop, IconMic, IconCheck, IconArrow, IconRefresh } from "./Icons";
 
 const SPEC_OPTIONS = {
@@ -259,6 +260,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens }) {
                 </button>
               </div>
             </div>
+            <PitchOverlay nativeUrl={natUrl} userUrl={recUrl} />
             <div className="grid grid-cols-2 gap-2.5">
               <div className="card p-3">
                 <p className="mono-label mb-1 text-center">native spectrogram</p>
