@@ -191,7 +191,7 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
       {/* content */}
       <div className="page-content">
         {error && (
-          <div className="text-red-500 text-sm p-3.5 border border-red-900/20 rounded mb-5 leading-relaxed">
+          <div className="text-amber-600 dark:text-amber-500 text-sm p-3.5 border border-amber-600/20 rounded mb-5 leading-relaxed">
             {error}
             <br />
             <button className="btn btn-default btn-sm mt-2.5" onClick={load}>Retry</button>
@@ -248,7 +248,7 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
                     const opts   = isRewrite ? item.options : def.exerciseOptions;
 
                     return (
-                      <div key={idx} className={`card p-3 ${bad ? "!border-red-900/30" : ""}`}>
+                      <div key={idx} className={`card p-3 ${bad ? "!border-amber-600/30" : ""}`}>
                         {isRewrite ? (
                           <>
                             <SpeakWord word={item.phrase} ipa={item.ipa} className="text-base inline-block mb-1">{item.phrase}</SpeakWord>
@@ -277,7 +277,7 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
                                 <p className="mono-muted mt-1">{item.ipa} · {item.syllables}</p>
                               </div>
                               {submitted && (
-                                <span className={`font-mono text-sm shrink-0 flex items-center gap-0.5 ${ok ? "text-gray-500" : "text-red-500"}`}>
+                                <span className={`font-mono text-sm shrink-0 flex items-center gap-0.5 ${ok ? "text-gray-500" : "text-amber-600"}`}>
                                   {ok ? <IconCheck size="sm" /> : <><IconClose size="sm" /> {item.answer}</>}
                                 </span>
                               )}
