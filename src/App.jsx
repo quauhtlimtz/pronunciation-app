@@ -120,11 +120,11 @@ export default function App() {
   return (
     <div className="min-h-dvh bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 flex flex-col">
       {/* header */}
-      <div className="border-b border-gray-200 dark:border-gray-700 px-4 pt-5 pb-4">
+      <div className="px-4 pt-5 pb-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <h1 className="text-xl font-normal tracking-tight leading-tight">
-              Pronunciation Practice Lab
+              American English Pronunciation
             </h1>
             <p className="font-mono text-sm text-gray-400 dark:text-gray-500 mt-2">
               IPA · Syllables · Shadowing · AI-generated · {done}/{LESSON_DEFS.length} complete
