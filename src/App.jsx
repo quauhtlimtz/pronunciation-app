@@ -261,9 +261,12 @@ export default function App() {
           </div>
         ))}
 
-        {/* coming soon */}
-        <p className="font-mono text-xs text-gray-300 dark:text-gray-600 mt-6 mb-2">
-          More coming · Stress · Intonation · Vowels · Reduced Speech
+        {/* about */}
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-6 mb-1 leading-relaxed">
+          I built this for myself to practice and organize my class notes. More lessons coming as the course continues.
+        </p>
+        <p className="font-mono text-xs text-gray-300 dark:text-gray-600">
+          Next · Stress · Intonation · Vowels · Reduced Speech
         </p>
 
         <Footer />
