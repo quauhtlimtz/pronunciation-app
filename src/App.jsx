@@ -196,11 +196,11 @@ export default function App() {
             </div>
           </div>
         ) : (
-          <div className="card mb-6 p-4 flex items-center gap-3">
+          <div className="card mb-6 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
             <div className="flex-1">
               <p className="text-sm">Sign in to save your progress across devices</p>
             </div>
-            <button className="btn btn-primary btn-sm" onClick={signIn}>Sign in with Google</button>
+            <button className="btn btn-primary btn-sm shrink-0" onClick={signIn}>Sign in with Google</button>
           </div>
         )}
 
@@ -219,7 +219,7 @@ export default function App() {
                         <span className="text-sm">{lesson.title}</span>
                         {isDone && <span className="text-gray-400"><IconCheck size="sm" /></span>}
                       </div>
-                      <p className="font-mono text-sm text-gray-500 mt-1 truncate">
+                      <p className="font-mono text-sm text-gray-500 mt-1">
                         {lesson.subtitle}
                       </p>
                     </div>

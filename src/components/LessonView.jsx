@@ -63,24 +63,26 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
     <div className="page">
       {/* sticky header + tabs */}
       <div className="sticky top-0 z-50 bg-gray-50 dark:bg-gray-950">
-        <div className="border-b border-gray-200 dark:border-gray-700 px-4 py-3">
-          <div className="flex items-center gap-2.5">
-            <button className="btn btn-default !px-3.5 !py-2" onClick={onBack}><IconBack size="md" /></button>
+        <div className="border-b border-gray-200 dark:border-gray-700 px-3 sm:px-4 py-2.5 sm:py-3">
+          <div className="flex items-center gap-2">
+            <button className="btn btn-default !px-2.5 !py-1.5 sm:!px-3.5 sm:!py-2" onClick={onBack}><IconBack size="md" /></button>
             <div className="flex-1 min-w-0">
-              <p className="mono-label">{def.session}</p>
-              <p className="text-base mt-0.5 truncate">{def.title}</p>
+              <p className="mono-label hidden sm:block">{def.session}</p>
+              <p className="text-sm sm:text-base mt-0.5 truncate">{def.title}</p>
             </div>
-            <button className="btn btn-default btn-sm gap-1" onClick={() => load(true)} disabled={loading}>
-              {loading ? "…" : <><IconRefresh size="sm" /> New</>}
-            </button>
-            {completed && <span className="mono-dim"><IconCheck size="sm" /></span>}
-            {darkToggle}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button className="btn btn-default btn-sm gap-1" onClick={() => load(true)} disabled={loading}>
+                {loading ? "…" : <><IconRefresh size="sm" /> <span className="hidden sm:inline">New</span></>}
+              </button>
+              {completed && <span className="mono-dim"><IconCheck size="sm" /></span>}
+              {darkToggle}
+            </div>
           </div>
         </div>
-        <div className="flex border-b border-gray-200 dark:border-gray-700 pl-1 overflow-x-auto">
+        <div className="flex border-b border-gray-200 dark:border-gray-700 pl-1">
           {TABS.map(t => (
             <button key={t}
-              className={`tab-btn ${tab === t ? "tab-btn-active" : ""}`}
+              className={`tab-btn flex-1 sm:flex-none ${tab === t ? "tab-btn-active" : ""}`}
               onClick={() => setTab(t)}>{TAB_LABELS[t]}</button>
           ))}
         </div>
