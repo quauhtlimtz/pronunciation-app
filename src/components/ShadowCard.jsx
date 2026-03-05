@@ -1,7 +1,55 @@
-import { useState, useRef } from "react";
-import { speak, stopSpeak, getTtsMode, getVoiceName } from "../services/tts";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { speak, stopSpeak, getTtsMode, getVoiceName, getTtsUrl } from "../services/tts";
+import { useWavesurfer } from "@wavesurfer/react";
+import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram.esm.js";
 import { PhraseAnnotation } from "./PhraseAnnotation";
 import { IconPlay, IconPause, IconStop, IconRecord, IconMic, IconCheck, IconArrow, IconRefresh, IconWarn } from "./Icons";
+
+const SPEC_OPTIONS = {
+  labels: false,
+  height: 80,
+  fftSamples: 512,
+  scale: "mel",
+  windowFunc: "hann",
+  colorMap: "roseus",
+  frequencyMin: 0,
+  frequencyMax: 8000,
+};
+
+function MiniSpectrogram({ audioUrl, label }) {
+  const waveRef = useRef(null);
+  const plugins = useMemo(() => [
+    SpectrogramPlugin.create(SPEC_OPTIONS),
+  ], []);
+
+  const { wavesurfer, isPlaying } = useWavesurfer({
+    container: waveRef,
+    url: audioUrl || "",
+    waveColor: "rgba(156,163,175,0.5)",
+    progressColor: "rgba(107,114,128,0.8)",
+    height: 32,
+    barWidth: 2,
+    barGap: 1,
+    barRadius: 2,
+    cursorWidth: 1,
+    cursorColor: "rgba(255,255,255,0.5)",
+    plugins,
+  });
+
+  if (!audioUrl) return null;
+
+  return (
+    <div className="mt-3">
+      <div ref={waveRef} className="rounded-md overflow-hidden" />
+      <button
+        className="btn btn-default btn-sm mt-2 w-full gap-1"
+        onClick={() => wavesurfer?.playPause()}
+      >
+        {isPlaying ? <><IconPause size="sm" /> pause</> : <><IconPlay size="sm" /> play {label}</>}
+      </button>
+    </div>
+  );
+}
 
 const STEPS = ["listen", "shadow", "compare"];
 
@@ -13,9 +61,16 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens }) {
   const [myPlay, setMyPlay]     = useState(false);
   const [denied, setDenied]     = useState(false);
   const [fallback, setFallback] = useState(getTtsMode() === "browser");
+  const [natUrl, setNatUrl]     = useState(null);
   const mrRef    = useRef(null);
   const chunks   = useRef([]);
   const audioRef = useRef(null);
+
+  useEffect(() => {
+    if (step === "compare") {
+      getTtsUrl(phrase).then(url => url && setNatUrl(url));
+    }
+  }, [step, phrase]);
 
   const playNat  = () => { setNatPlay(true);  speak(phrase, () => setNatPlay(false), () => setFallback(true)); };
   const stopNat  = () => { stopSpeak(); setNatPlay(false); };
@@ -45,7 +100,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens }) {
     audioRef.current.onended = () => setMyPlay(false);
   }
 
-  function reset() { setStep("listen"); setRecUrl(null); setRec(false); setNatPlay(false); setMyPlay(false); stopSpeak(); }
+  function reset() { setStep("listen"); setRecUrl(null); setNatUrl(null); setRec(false); setNatPlay(false); setMyPlay(false); stopSpeak(); }
 
   const si = STEPS.indexOf(step);
   const canNav = i => i <= si || (i === 2 && recUrl);
@@ -133,11 +188,21 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens }) {
                 </button>
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="card p-3">
+                <p className="mono-label mb-1 text-center">native spectrogram</p>
+                <MiniSpectrogram audioUrl={natUrl} label="native" />
+              </div>
+              <div className="card p-3">
+                <p className="mono-label mb-1 text-center">your spectrogram</p>
+                <MiniSpectrogram audioUrl={recUrl} label="yours" />
+              </div>
+            </div>
             <p className="text-sm text-gray-500 leading-relaxed">
               stress: {syllables}{note ? ` · ${note}` : ""}
             </p>
             <div className="flex gap-2 flex-wrap">
-              <button className="btn btn-default gap-1" onClick={() => { setRecUrl(null); setStep("shadow"); }}><IconRefresh size="sm" /> Re-record</button>
+              <button className="btn btn-default gap-1" onClick={() => { setRecUrl(null); setNatUrl(null); setStep("shadow"); }}><IconRefresh size="sm" /> Re-record</button>
               <button className="btn btn-ghost" onClick={reset}>Start over</button>
             </div>
           </div>

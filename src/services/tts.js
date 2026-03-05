@@ -4,6 +4,7 @@ const EL_MODEL = "eleven_turbo_v2";
 
 let currentAudio = null;
 let ttsMode = "el"; // "el" | "browser"
+const blobCache = new Map();
 
 export function getTtsMode() { return ttsMode; }
 
@@ -45,6 +46,28 @@ function browserSpeak(text, onEnd) {
   });
 }
 
+async function fetchElevenLabs(text) {
+  if (blobCache.has(text)) return blobCache.get(text);
+  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${EL_VOICE}`, {
+    method: "POST",
+    headers: { "xi-api-key": EL_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      text, model_id: EL_MODEL,
+      voice_settings: { stability: 0.4, similarity_boost: 0.75, style: 0.3, use_speaker_boost: true },
+    }),
+  });
+  if (!res.ok) throw new Error(res.status === 429 ? "quota" : `error ${res.status}`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  blobCache.set(text, url);
+  return url;
+}
+
+export async function getTtsUrl(text) {
+  if (ttsMode === "browser") return null;
+  try { return await fetchElevenLabs(text); } catch { return null; }
+}
+
 export async function speak(text, onEnd, onFallback) {
   if (ttsMode === "browser") {
     browserSpeak(text, onEnd);
@@ -52,20 +75,7 @@ export async function speak(text, onEnd, onFallback) {
   }
   try {
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
-    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${EL_VOICE}`, {
-      method: "POST",
-      headers: { "xi-api-key": EL_KEY, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        text, model_id: EL_MODEL,
-        voice_settings: { stability: 0.4, similarity_boost: 0.75, style: 0.3, use_speaker_boost: true },
-      }),
-    });
-    if (!res.ok) {
-      const reason = res.status === 429 ? "quota" : `error ${res.status}`;
-      throw new Error(reason);
-    }
-    const blob = await res.blob();
-    const url  = URL.createObjectURL(blob);
+    const url = await fetchElevenLabs(text);
     const audio = new Audio(url);
     currentAudio = audio;
     if (onEnd) audio.onended = () => { currentAudio = null; onEnd(); };
