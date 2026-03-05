@@ -75,10 +75,20 @@ async function trimAndEncode(blob) {
       break;
     }
   }
+  // Find speech offset (trim trailing silence too)
+  let offset = raw.length;
+  for (let i = raw.length - winSize; i > onset; i -= winSize) {
+    let sum = 0;
+    for (let j = i; j < i + winSize; j++) sum += raw[j] * raw[j];
+    if (Math.sqrt(sum / winSize) > thresh) {
+      offset = Math.min(i + winSize * 4, raw.length); // 40ms margin
+      break;
+    }
+  }
   ctx.close();
 
   // Encode trimmed mono PCM → WAV
-  const samples = raw.subarray(onset);
+  const samples = raw.subarray(onset, offset);
   const len = samples.length;
   const wavBuf = new ArrayBuffer(44 + len * 2);
   const v = new DataView(wavBuf);
@@ -257,8 +267,8 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
         const blob = new Blob(chunks, { type: mr.mimeType });
         if (chunks.length === 0 || blob.size < 100) {
           setRecError("No audio captured — check your microphone and try again.");
-        } else if (isSafari) {
-          // Safari: trim mic activation noise + countdown silence, re-encode as clean WAV
+        } else {
+          // Trim leading/trailing silence so visualizations align with speech
           trimAndEncode(blob).then(url => {
             setRecUrl(url);
             setRecError(null);
@@ -266,9 +276,6 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
             setRecUrl(URL.createObjectURL(blob)); // fallback
             setRecError(null);
           });
-        } else {
-          setRecUrl(URL.createObjectURL(blob));
-          setRecError(null);
         }
         setRec(false);
         recorderRef.current?.stopMic();
