@@ -53,10 +53,6 @@ function MiniSpectrogram({ audioUrl }) {
   );
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-
 // ─── Main component ────────────────────────────────────────────────────────
 
 const STEPS = ["listen", "shadow", "compare"];
@@ -78,15 +74,12 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   const [natVol, setNatVol]     = useState(1);
   const [userVol, setUserVol]   = useState(1);
 
-  // Wavesurfer Record plugin for live waveform (mic visualization only)
-  // We manage MediaRecorder ourselves for instant start
   const recWaveRef = useRef(null);
   const recorderRef = useRef(null);
   const wsRef = useRef(null);
-  const mediaRecRef = useRef(null);
   const recTimerRef = useRef(null);
 
-  // Initialize wavesurfer with Record plugin when shadow step is active
+  // Initialize wavesurfer + Record plugin when shadow step is active
   useEffect(() => {
     if (step !== "shadow" || !recWaveRef.current) return;
 
@@ -108,17 +101,30 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
       renderRecordedAudio: false,
     }));
 
+    // Handle recording result via plugin event
+    recorder.on("record-end", (blob) => {
+      clearInterval(recTimerRef.current);
+      if (!blob || blob.size < 100) {
+        setRecError("No audio captured — check your microphone and try again.");
+      } else {
+        trimSilence(blob).then(url => {
+          setRecUrl(url);
+          setRecError(null);
+        }).catch(() => {
+          setRecUrl(URL.createObjectURL(blob));
+          setRecError(null);
+        });
+      }
+      setRec(false);
+    });
+
     wsRef.current = ws;
     recorderRef.current = recorder;
-
-    // Pre-load ffmpeg WASM so trim is instant after recording
     preloadFFmpeg();
 
     return () => {
-      // Clean up our own MediaRecorder if active
-      if (mediaRecRef.current?.state === "recording") mediaRecRef.current.stop();
-      mediaRecRef.current = null;
       clearInterval(recTimerRef.current);
+      if (recorder.isRecording()) recorder.stopRecording();
       recorder.stopMic();
       ws.destroy();
       wsRef.current = null;
@@ -195,63 +201,27 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
     setRecDuration(0);
 
     try {
-      // Step 1: Open mic — this does getUserMedia + starts live waveform
-      const constraints = micDeviceId ? { deviceId: micDeviceId } : undefined;
-      const stream = await recorderRef.current.startMic(constraints);
-
-      // Detect actual device
-      try {
-        const track = stream.getAudioTracks()[0];
-        const actualId = track?.getSettings?.()?.deviceId;
-        if (actualId && onMicDetected) onMicDetected(actualId);
-      } catch {}
-
-      // Step 2: Create MediaRecorder
-      const mimeType = ["audio/webm", "audio/mp4", "audio/wav"]
-        .find(t => MediaRecorder.isTypeSupported(t));
-      const mr = new MediaRecorder(stream, {
-        mimeType,
-        audioBitsPerSecond: 128000,
-      });
-      const chunks = [];
-      mr.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-      mr.onstop = () => {
-        clearInterval(recTimerRef.current);
-        const blob = new Blob(chunks, { type: mr.mimeType });
-        if (chunks.length === 0 || blob.size < 100) {
-          setRecError("No audio captured — check your microphone and try again.");
-        } else {
-          // Trim leading/trailing silence via ffmpeg silenceremove
-          trimSilence(blob).then(url => {
-            setRecUrl(url);
-            setRecError(null);
-          }).catch(() => {
-            setRecUrl(URL.createObjectURL(blob)); // fallback
-            setRecError(null);
-          });
-        }
-        setRec(false);
-        recorderRef.current?.stopMic();
-        mediaRecRef.current = null;
-      };
-      mediaRecRef.current = mr;
-
-      // Safari: start recording BEFORE countdown to absorb MediaRecorder startup delay
-      // Other browsers: start after countdown (no delay issue)
-      if (isSafari) mr.start(250);
-
-      // Step 3: Countdown
+      // Countdown first
       for (let i = 3; i >= 1; i--) {
         setCountdown(i);
         await new Promise(r => setTimeout(r, 600));
       }
       setCountdown(0);
 
-      // Non-Safari: start recording after countdown
-      if (!isSafari) mr.start(250);
+      // Start recording via plugin (handles getUserMedia + MediaRecorder)
+      const constraints = micDeviceId ? { deviceId: { exact: micDeviceId } } : undefined;
+      await recorderRef.current.startRecording(constraints);
       setRec(true);
 
-      // Duration timer starts AFTER countdown (user-visible duration)
+      // Detect actual device for mic selector
+      try {
+        const stream = recorderRef.current.stream;
+        const track = stream?.getAudioTracks()[0];
+        const actualId = track?.getSettings?.()?.deviceId;
+        if (actualId && onMicDetected) onMicDetected(actualId);
+      } catch {}
+
+      // Duration timer
       const t0 = Date.now();
       recTimerRef.current = setInterval(() => {
         setRecDuration(Math.round((Date.now() - t0) / 1000));
@@ -259,7 +229,6 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
     } catch (e) {
       setCountdown(0);
       setRec(false);
-      mediaRecRef.current = null;
       if (e?.name === "NotAllowedError" || e?.name === "PermissionDeniedError") {
         setDenied(true);
       } else {
@@ -269,10 +238,8 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   }, [micDeviceId, onMicDetected]);
 
   const stopRec = useCallback(() => {
-    if (mediaRecRef.current?.state === "recording") {
-      // Force final data flush before stopping
-      try { mediaRecRef.current.requestData(); } catch {}
-      mediaRecRef.current.stop();
+    if (recorderRef.current?.isRecording()) {
+      recorderRef.current.stopRecording();
     }
   }, []);
 
