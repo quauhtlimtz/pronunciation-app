@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { cacheGet, cacheClear } from "../services/cache";
-import { generateContent } from "../services/api";
+import { getContent } from "../services/content";
 import { TheoryCard } from "./TheoryCard";
 import { SpeakWord } from "./SpeakWord";
 import { ShadowCard } from "./ShadowCard";
@@ -8,7 +7,7 @@ import { StressLegend } from "./PhraseAnnotation";
 import { IconBack, IconRefresh, IconCheck, IconArrow, IconClose } from "./Icons";
 import { Footer } from "./Footer";
 
-export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab = "theory", onTabChange }) {
+export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab = "theory", onTabChange, user }) {
   const setTab = onTabChange || (() => {});
   const [content, setContent] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -20,24 +19,13 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
   const [fromCache, setFromCache] = useState(false);
 
   async function load(force = false) {
-    if (!force) {
-      const cached = cacheGet(def.id);
-      if (cached) {
-        setContent(cached);
-        setEx([...cached.exercises].sort(() => Math.random() - 0.5));
-        setAnswers({}); setSub(false); setScore(null);
-        setFromCache(true);
-        return;
-      }
-    }
-    setFromCache(false);
     setLoading(true); setError(null);
     try {
-      if (force) cacheClear(def.id);
-      const data = await generateContent(def, force);
+      const data = await getContent(def, { user, force });
       setContent(data);
       setEx([...data.exercises].sort(() => Math.random() - 0.5));
       setAnswers({}); setSub(false); setScore(null);
+      setFromCache(!force);
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
   }
@@ -71,9 +59,11 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
               <p className="text-sm sm:text-base mt-0.5 truncate">{def.title}</p>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
-              <button className="p-2 rounded cursor-pointer text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 active:opacity-50 transition-colors disabled:opacity-30" onClick={() => load(true)} disabled={loading}>
-                {loading ? "…" : <IconRefresh size="md" />}
-              </button>
+              {user && (
+                <button className="p-2 rounded cursor-pointer text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 active:opacity-50 transition-colors disabled:opacity-30" onClick={() => load(true)} disabled={loading}>
+                  {loading ? "…" : <IconRefresh size="md" />}
+                </button>
+              )}
               {completed && <span className="mono-dim"><IconCheck size="sm" /></span>}
               {darkToggle}
             </div>

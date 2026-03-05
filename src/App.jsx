@@ -122,6 +122,7 @@ export default function App() {
         completed={completed[active.id]}
         onComplete={() => completeLesson(active.id, null)}
         darkToggle={<ThemeToggle dark={dark} setDark={setDark} />}
+        user={user}
         tab={currentTab}
         onTabChange={onTabChange}
       />

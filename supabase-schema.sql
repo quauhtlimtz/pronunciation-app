@@ -97,3 +97,42 @@ create policy "Admin reads all activity" on activity for select using (
 create index idx_progress_user on progress(user_id);
 create index idx_activity_user on activity(user_id);
 create index idx_activity_created on activity(created_at desc);
+
+-- ─── Shared content pool ──────────────────────────────────────────────────
+
+-- Shared AI-generated lesson content pool
+create table lesson_content (
+  id bigint generated always as identity primary key,
+  lesson_id text not null,
+  content jsonb not null,
+  created_by uuid references profiles(id) on delete set null,
+  created_at timestamptz default now()
+);
+
+-- Track which content each user has already seen
+create table user_content_seen (
+  user_id uuid references profiles(id) on delete cascade,
+  content_id bigint references lesson_content(id) on delete cascade,
+  seen_at timestamptz default now(),
+  primary key (user_id, content_id)
+);
+
+-- Indexes
+create index idx_lesson_content_lesson on lesson_content(lesson_id);
+create index idx_user_content_seen_user on user_content_seen(user_id);
+
+-- RLS
+alter table lesson_content enable row level security;
+alter table user_content_seen enable row level security;
+
+-- Anyone can read lesson content (including anonymous for demo)
+create policy "Anon read lesson content" on lesson_content for select using (true);
+
+-- Users can insert content they create
+create policy "Users create lesson content" on lesson_content for insert with check (auth.uid() = created_by);
+-- Users manage their own seen records
+create policy "Users read own seen" on user_content_seen for select using (auth.uid() = user_id);
+create policy "Users write own seen" on user_content_seen for insert with check (auth.uid() = user_id);
+-- Admin reads all
+create policy "Admin reads all lesson_content" on lesson_content for select using (auth.jwt()->>'email' = 'quauhtli.martinez@gmail.com');
+create policy "Admin reads all user_content_seen" on user_content_seen for select using (auth.jwt()->>'email' = 'quauhtli.martinez@gmail.com');

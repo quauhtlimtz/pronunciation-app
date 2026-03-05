@@ -80,7 +80,7 @@ function parseAnthropicResponse(data) {
 
 // ─── Core fetch ──────────────────────────────────────────────────────────────
 
-async function fetchFromAPI(lessonDef) {
+export async function fetchFromAPI(lessonDef) {
   const provider = PROVIDERS[ACTIVE_PROVIDER];
 
   const body = provider.format === "anthropic"
