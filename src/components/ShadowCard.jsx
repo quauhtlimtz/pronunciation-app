@@ -118,7 +118,7 @@ function MiniSpectrogram({ audioUrl, label }) {
 
 const STEPS = ["listen", "shadow", "compare"];
 
-export function ShadowCard({ phrase, ipa, syllables, note, tokens, onRecordingChange }) {
+export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, onRecordingChange }) {
   const [step, setStep]         = useState("listen");
   const [natPlay, setNatPlay]   = useState(false);
   const [rec, setRec]           = useState(false);
@@ -148,7 +148,8 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, onRecordingCh
   async function startRec() {
     chunks.current = [];
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const audioConstraints = micDeviceId ? { deviceId: { exact: micDeviceId } } : true;
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
       streamRef.current = stream;
       const mimeType = pickMimeType();
       const mr = mimeType

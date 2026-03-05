@@ -4,8 +4,59 @@ import { TheoryCard } from "./TheoryCard";
 import { SpeakWord } from "./SpeakWord";
 import { ShadowCard } from "./ShadowCard";
 import { StressLegend } from "./PhraseAnnotation";
-import { IconBack, IconRefresh, IconCheck, IconArrow, IconClose } from "./Icons";
+import { IconBack, IconRefresh, IconCheck, IconArrow, IconClose, IconMic } from "./Icons";
 import { Footer } from "./Footer";
+
+function MicSelector({ deviceId, onChange }) {
+  const [devices, setDevices] = useState([]);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    async function load() {
+      // Need a brief getUserMedia call to get permission, then enumerate
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(t => t.stop());
+      } catch { return; }
+      const all = await navigator.mediaDevices.enumerateDevices();
+      setDevices(all.filter(d => d.kind === "audioinput"));
+    }
+    if (open && devices.length === 0) load();
+  }, [open]);
+
+  const current = devices.find(d => d.deviceId === deviceId);
+  const label = current?.label || "Default microphone";
+
+  return (
+    <div className="relative">
+      <button
+        className="btn btn-default btn-sm gap-1.5 text-left max-w-full"
+        onClick={() => setOpen(!open)}
+      >
+        <IconMic size="sm" />
+        <span className="truncate">{label}</span>
+      </button>
+      {open && devices.length > 0 && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full mt-1 z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[16rem] max-w-[calc(100vw-2rem)]">
+            {devices.map(d => (
+              <button key={d.deviceId}
+                className={`block w-full text-left px-3 py-2 text-sm truncate cursor-pointer
+                  ${d.deviceId === deviceId
+                    ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50"}`}
+                onClick={() => { onChange(d.deviceId); setOpen(false); }}
+              >
+                {d.label || `Microphone ${d.deviceId.slice(0, 8)}`}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 function ConfirmDialog({ onConfirm, onCancel }) {
   return (
@@ -39,6 +90,7 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef(null);
   const [confirmAction, setConfirmAction] = useState(null);
+  const [micDeviceId, setMicDeviceId] = useState("");
   const recordingsRef = useRef(new Set());
 
   const hasRecordings = useCallback(() => recordingsRef.current.size > 0, []);
@@ -48,7 +100,8 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
     else recordingsRef.current.delete(phrase);
   }, []);
 
-  // Browser reload/close warning
+  // Warn on browser reload/close — recording blobs live in memory and will be lost.
+  // The dialog text is controlled by the browser (not customizable in modern Safari/Chrome).
   useEffect(() => {
     const handler = e => {
       if (recordingsRef.current.size > 0) {
@@ -260,13 +313,17 @@ export function LessonView({ def, onBack, completed, onComplete, darkToggle, tab
 
             {tab === "shadowing" && (
               <div>
-                <p className="text-sm text-gray-500 mb-2 leading-relaxed hidden sm:block">
-                  listen, shadow, compare · record yourself imitating the native speaker
-                </p>
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <p className="text-sm text-gray-500 leading-relaxed hidden sm:block pt-1">
+                    listen, shadow, compare · record yourself imitating the native speaker
+                  </p>
+                  <MicSelector deviceId={micDeviceId} onChange={setMicDeviceId} />
+                </div>
                 <StressLegend />
                 {content.shadowing.map((p, i) => (
                   <ShadowCard key={`${def.id}-${i}-${p.phrase}`}
                     phrase={p.phrase} ipa={p.ipa} syllables={p.syllables} note={p.note} tokens={p.tokens}
+                    micDeviceId={micDeviceId}
                     onRecordingChange={has => handleRecordingChange(p.phrase, has)} />
                 ))}
               </div>
