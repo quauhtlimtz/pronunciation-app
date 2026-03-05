@@ -4,12 +4,13 @@ import { ThemeToggle } from "./components/ThemeToggle";
 import { LessonView } from "./components/LessonView";
 import { AdminPanel } from "./components/AdminPanel";
 import { IconCheck, IconArrow } from "./components/Icons";
+import { AnatomyDiagram } from "./components/AnatomyDiagram";
 import { Footer } from "./components/Footer";
 import { useAuth } from "./components/AuthContext";
 
 function getParams() {
   const p = new URLSearchParams(window.location.search);
-  return { lesson: p.get("lesson"), tab: p.get("tab"), admin: p.has("admin") };
+  return { lesson: p.get("lesson"), tab: p.get("tab"), admin: p.has("admin"), anatomy: p.has("anatomy") };
 }
 
 function setParams(lesson, tab) {
@@ -30,6 +31,7 @@ export default function App() {
   const [active, setActive]         = useState(initialLesson || null);
   const [currentTab, setCurrentTab] = useState(initial.tab || "theory");
   const [showAdmin, setShowAdmin]   = useState(initial.admin && isAdmin);
+  const [showAnatomy, setShowAnatomy] = useState(initial.anatomy);
   const [dark, setDark]             = useState(null);
 
   // Build completed map from Supabase progress
@@ -41,11 +43,12 @@ export default function App() {
   // Sync URL on back/forward
   useEffect(() => {
     const onPop = () => {
-      const { lesson, tab, admin } = getParams();
+      const { lesson, tab, admin, anatomy } = getParams();
       const def = LESSON_DEFS.find(l => l.id === lesson);
       setActive(def || null);
       setCurrentTab(tab || "theory");
       setShowAdmin(admin && isAdmin);
+      setShowAnatomy(anatomy);
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
@@ -61,6 +64,7 @@ export default function App() {
   const goHome = useCallback(() => {
     setActive(null);
     setShowAdmin(false);
+    setShowAnatomy(false);
     setCurrentTab("theory");
     setParams(null, null);
   }, []);
@@ -96,6 +100,17 @@ export default function App() {
   // Admin panel
   if (showAdmin && isAdmin) {
     return <AdminPanel onBack={goHome} />;
+  }
+
+  // Anatomy diagram
+  if (showAnatomy) {
+    return (
+      <AnatomyDiagram
+        onBack={goHome}
+        darkToggle={<ThemeToggle dark={dark} setDark={setDark} />}
+        dark={dark}
+      />
+    );
   }
 
   // Lesson view
@@ -134,10 +149,7 @@ export default function App() {
             <ThemeToggle dark={dark} setDark={setDark} />
           </div>
         </div>
-        <div className="h-0.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mt-3">
-          <div className="h-full bg-gray-900 dark:bg-gray-100 rounded-full transition-all duration-400"
-            style={{ width: `${(done / LESSON_DEFS.length) * 100}%` }} />
-        </div>
+        <p className="font-mono text-xs text-gray-300 dark:text-gray-600 mt-1">——</p>
       </div>
 
       {/* list */}
@@ -203,6 +215,23 @@ export default function App() {
             <button className="btn btn-primary btn-sm shrink-0" onClick={signIn}>Sign in with Google</button>
           </div>
         )}
+
+        {/* Feb 8 session — anatomy (standalone, not AI-generated) */}
+        <div className="mb-7">
+          <p className="font-mono text-sm text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2.5">Feb 8, 2026</p>
+          <div className="flex flex-col">
+            <div
+              className="border-b border-gray-100 dark:border-gray-800 px-4 py-3.5 cursor-pointer flex items-center gap-3.5 hover:bg-white dark:hover:bg-gray-900 active:bg-white dark:active:bg-gray-900 transition-colors"
+              onClick={() => { setShowAnatomy(true); window.history.pushState(null, "", "?anatomy"); }}
+            >
+              <div className="flex-1 min-w-0">
+                <span className="text-sm">Vocal Tract Anatomy</span>
+                <p className="font-mono text-sm text-gray-500 mt-1">Interactive diagram · sounds by place of articulation</p>
+              </div>
+              <span className="text-gray-400 shrink-0"><IconArrow size="sm" /></span>
+            </div>
+          </div>
+        </div>
 
         {sessions.map(session => (
           <div key={session} className="mb-7">
