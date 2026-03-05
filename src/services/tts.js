@@ -1,4 +1,4 @@
-const EL_KEY   = "sk_5101214a011f137e118498042172476f25b43b2afea9eb5e";
+const EL_KEY   = import.meta.env.VITE_ELEVENLABS_API_KEY;
 const EL_VOICE = "21m00Tcm4TlvDq8ikWAM"; // Rachel — natural American English
 const EL_MODEL = "eleven_turbo_v2";
 

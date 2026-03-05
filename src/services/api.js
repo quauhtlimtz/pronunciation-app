@@ -24,7 +24,7 @@ const PROVIDERS = {
     model: "gemini-2.0-flash",
     headers: {
       "Content-Type": "application/json",
-      Authorization: "Bearer AIzaSyDBpnBHtMhwo5QEmIcarrd2DJCtXBFUkS8",
+      Authorization: `Bearer ${import.meta.env.VITE_GEMINI_API_KEY}`,
     },
     format: "openai",
   },
