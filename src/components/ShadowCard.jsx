@@ -28,67 +28,72 @@ function pickMimeType() {
 
 function LiveWaveform({ stream }) {
   const canvasRef = useRef(null);
+  const stateRef = useRef(null);
 
   useEffect(() => {
     if (!stream) return;
-    let raf;
-    let source;
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.3;
+    source.connect(analyser);
+    // Also add a GainNode to amplify the signal for visualization
+    const gainNode = ctx.createGain();
+    gainNode.gain.value = 3;
+    source.connect(gainNode);
+    gainNode.connect(analyser);
 
-    (async () => {
-      // Safari keeps AudioContext suspended until resumed from a user gesture context
-      if (ctx.state === "suspended") await ctx.resume();
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    let raf;
+    let sized = false;
 
-      source = ctx.createMediaStreamSource(stream);
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 256;
-      source.connect(analyser);
+    if (ctx.state === "suspended") ctx.resume();
 
-      const data = new Uint8Array(analyser.frequencyBinCount);
+    function draw() {
+      const canvas = canvasRef.current;
+      if (!canvas) { raf = requestAnimationFrame(draw); return; }
 
-      function draw() {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
+      if (!sized) {
         const dpr = window.devicePixelRatio || 1;
-        const w = canvas.clientWidth;
-        const h = canvas.clientHeight;
-        if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
-          canvas.width = w * dpr;
-          canvas.height = h * dpr;
-        }
-        const gfx = canvas.getContext("2d");
-        gfx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-        analyser.getByteTimeDomainData(data);
-
-        gfx.clearRect(0, 0, w, h);
-        gfx.beginPath();
-        gfx.strokeStyle = "#d97706";
-        gfx.lineWidth = 1.5;
-
-        // Auto-gain: find peak deviation from center and scale up
-        let maxDev = 0;
-        for (let i = 0; i < data.length; i++) {
-          const dev = Math.abs(data[i] - 128);
-          if (dev > maxDev) maxDev = dev;
-        }
-        const gain = maxDev > 0 ? Math.min(128 / maxDev, 10) : 1;
-
-        const step = w / data.length;
-        for (let i = 0; i < data.length; i++) {
-          const normalized = ((data[i] - 128) * gain) / 128;
-          const y = (1 - normalized) * h / 2;
-          if (i === 0) gfx.moveTo(0, y);
-          else gfx.lineTo(i * step, y);
-        }
-        gfx.stroke();
-        raf = requestAnimationFrame(draw);
+        canvas.width = canvas.clientWidth * dpr;
+        canvas.height = canvas.clientHeight * dpr;
+        sized = true;
       }
 
-      draw();
-    })();
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      const dpr = window.devicePixelRatio || 1;
+      const gfx = canvas.getContext("2d");
+      gfx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    return () => { cancelAnimationFrame(raf); source?.disconnect(); ctx.close(); };
+      analyser.getByteTimeDomainData(data);
+
+      gfx.clearRect(0, 0, w, h);
+      gfx.beginPath();
+      gfx.strokeStyle = "#d97706";
+      gfx.lineWidth = 1.5;
+
+      const step = w / data.length;
+      for (let i = 0; i < data.length; i++) {
+        const v = (data[i] - 128) / 128; // -1 to 1
+        const y = (1 - v) * h / 2;
+        if (i === 0) gfx.moveTo(0, y);
+        else gfx.lineTo(i * step, y);
+      }
+      gfx.stroke();
+      raf = requestAnimationFrame(draw);
+    }
+
+    raf = requestAnimationFrame(draw);
+    stateRef.current = { ctx, source, gainNode };
+
+    return () => {
+      cancelAnimationFrame(raf);
+      source.disconnect();
+      gainNode.disconnect();
+      ctx.close();
+    };
   }, [stream]);
 
   return <canvas ref={canvasRef} className="w-full rounded-md" style={{ height: 48 }} />;
@@ -266,25 +271,19 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
               ? <p className="text-sm text-amber-700 dark:text-amber-500 text-center">Microphone access denied — enable it in browser settings.</p>
               : <>
                   {countdown > 0 ? (
-                    <>
-                      <div className="circ flex items-center justify-center">
-                        <span className="text-2xl font-semibold tabular-nums">{countdown}</span>
-                      </div>
-                      {streamRef.current && <LiveWaveform stream={streamRef.current} />}
-                      <p className="text-sm text-gray-500">get ready…</p>
-                    </>
+                    <div className="circ flex items-center justify-center">
+                      <span className="text-2xl font-semibold tabular-nums">{countdown}</span>
+                    </div>
                   ) : (
-                    <>
-                      <button className={`circ ${rec ? "circ-rec" : ""}`} onClick={rec ? stopRec : startRec}>
-                        {rec ? <IconStop size="lg" /> : <IconMic size="lg" />}
-                      </button>
-                      {rec && streamRef.current && <LiveWaveform stream={streamRef.current} />}
-                      <p className={`text-sm ${rec ? "text-amber-700 dark:text-amber-500" : "text-gray-500"}`}>
-                        {rec ? "recording… tap to stop" : "tap to record yourself"}
-                      </p>
-                    </>
+                    <button className={`circ ${rec ? "circ-rec" : ""}`} onClick={rec ? stopRec : startRec}>
+                      {rec ? <IconStop size="lg" /> : <IconMic size="lg" />}
+                    </button>
                   )}
-                  {recUrl && !rec && (
+                  {(countdown > 0 || rec) && streamRef.current && <LiveWaveform stream={streamRef.current} />}
+                  <p className={`text-sm ${countdown > 0 ? "text-gray-500" : rec ? "text-amber-700 dark:text-amber-500" : "text-gray-500"}`}>
+                    {countdown > 0 ? "get ready…" : rec ? "recording… tap to stop" : "tap to record yourself"}
+                  </p>
+                  {recUrl && !rec && !countdown && (
                     <button className="btn btn-primary min-w-[12.5rem] gap-1" onClick={() => setStep("compare")}>
                       compare <IconArrow size="sm" />
                     </button>
