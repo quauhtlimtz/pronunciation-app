@@ -31,47 +31,55 @@ function LiveWaveform({ stream }) {
 
   useEffect(() => {
     if (!stream) return;
-    const ctx = new AudioContext();
-    const source = ctx.createMediaStreamSource(stream);
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 256;
-    source.connect(analyser);
-
-    const data = new Uint8Array(analyser.frequencyBinCount);
     let raf;
+    let source;
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
 
-    function draw() {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const dpr = window.devicePixelRatio || 1;
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
-        canvas.width = w * dpr;
-        canvas.height = h * dpr;
+    (async () => {
+      // Safari keeps AudioContext suspended until resumed from a user gesture context
+      if (ctx.state === "suspended") await ctx.resume();
+
+      source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+
+      const data = new Uint8Array(analyser.frequencyBinCount);
+
+      function draw() {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const dpr = window.devicePixelRatio || 1;
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+          canvas.width = w * dpr;
+          canvas.height = h * dpr;
+        }
+        const gfx = canvas.getContext("2d");
+        gfx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        analyser.getByteTimeDomainData(data);
+
+        gfx.clearRect(0, 0, w, h);
+        gfx.beginPath();
+        gfx.strokeStyle = "#d97706";
+        gfx.lineWidth = 1.5;
+
+        const step = w / data.length;
+        for (let i = 0; i < data.length; i++) {
+          const y = (data[i] / 255) * h;
+          if (i === 0) gfx.moveTo(0, y);
+          else gfx.lineTo(i * step, y);
+        }
+        gfx.stroke();
+        raf = requestAnimationFrame(draw);
       }
-      const gfx = canvas.getContext("2d");
-      gfx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      analyser.getByteTimeDomainData(data);
+      draw();
+    })();
 
-      gfx.clearRect(0, 0, w, h);
-      gfx.beginPath();
-      gfx.strokeStyle = "#d97706";
-      gfx.lineWidth = 1.5;
-
-      const step = w / data.length;
-      for (let i = 0; i < data.length; i++) {
-        const y = (data[i] / 255) * h;
-        if (i === 0) gfx.moveTo(0, y);
-        else gfx.lineTo(i * step, y);
-      }
-      gfx.stroke();
-      raf = requestAnimationFrame(draw);
-    }
-
-    draw();
-    return () => { cancelAnimationFrame(raf); source.disconnect(); ctx.close(); };
+    return () => { cancelAnimationFrame(raf); source?.disconnect(); ctx.close(); };
   }, [stream]);
 
   return <canvas ref={canvasRef} className="w-full rounded-md" style={{ height: 48 }} />;
@@ -162,7 +170,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
         stream.getTracks().forEach(t => t.stop());
         streamRef.current = null;
       };
-      mr.start();
+      mr.start(250); // timeslice for reliable chunk collection across browsers
       mrRef.current = mr;
       setRec(true);
     } catch { setDenied(true); }

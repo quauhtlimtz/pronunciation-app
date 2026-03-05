@@ -134,14 +134,20 @@ export function PitchOverlay({ nativeUrl, userUrl }) {
 
     (async () => {
       try {
-        const [natAudio, userAudio] = await Promise.all([
-          decodeUrl(nativeUrl),
-          decodeUrl(userUrl),
-        ]);
+        // Decode each independently — one might fail (e.g. Safari + webm blob)
+        let natAudio = null, userAudio = null;
+        try { natAudio = await decodeUrl(nativeUrl); } catch (e) { console.warn("PitchOverlay: native decode failed", e); }
+        try { userAudio = await decodeUrl(userUrl); } catch (e) { console.warn("PitchOverlay: user decode failed", e); }
         if (cancelled) return;
 
-        const natPitch = smooth(extractPitch(natAudio.samples, natAudio.sr));
-        const userPitch = smooth(extractPitch(userAudio.samples, userAudio.sr));
+        if (!natAudio && !userAudio) {
+          setError("Could not decode audio");
+          setLoading(false);
+          return;
+        }
+
+        const natPitch = natAudio ? smooth(extractPitch(natAudio.samples, natAudio.sr)) : [];
+        const userPitch = userAudio ? smooth(extractPitch(userAudio.samples, userAudio.sr)) : [];
 
         if (natPitch.length === 0 && userPitch.length === 0) {
           setError("Could not detect pitch");
