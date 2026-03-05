@@ -141,30 +141,30 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
     setRecError(null);
     setRecDuration(0);
 
-    // Countdown 3-2-1 first (no mic access yet — clean, no flicker)
-    for (let i = 3; i >= 1; i--) {
-      setCountdown(i);
-      await new Promise(r => setTimeout(r, 600));
-    }
-    setCountdown(0);
-
     try {
-      // Single call — startRecording handles mic access + recording in one shot
+      // Step 1: Open mic BEFORE countdown so stream is warm
       const constraints = micDeviceId ? { deviceId: micDeviceId } : undefined;
-      await recorderRef.current.startRecording(constraints);
+      await recorderRef.current.startMic(constraints);
 
-      if (!recorderRef.current.isRecording()) {
-        throw new Error("Recording failed to start");
-      }
-      setRec(true);
-
-      // Detect actual device used
+      // Detect actual device
       try {
         const track = recorderRef.current.stream?.getAudioTracks()[0];
         const actualId = track?.getSettings?.()?.deviceId;
         if (actualId && onMicDetected) onMicDetected(actualId);
       } catch {}
+
+      // Step 2: Countdown while mic is already live
+      for (let i = 3; i >= 1; i--) {
+        setCountdown(i);
+        await new Promise(r => setTimeout(r, 600));
+      }
+      setCountdown(0);
+
+      // Step 3: Start recording — mic stream already exists, no getUserMedia delay
+      await recorderRef.current.startRecording();
+      setRec(true);
     } catch (e) {
+      setCountdown(0);
       setRec(false);
       if (e?.name === "NotAllowedError" || e?.name === "PermissionDeniedError") {
         setDenied(true);
