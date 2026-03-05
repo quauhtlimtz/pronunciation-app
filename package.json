@@ -1,0 +1,27 @@
+{
+  "name": "pronunciation-app",
+  "version": "1.0.0",
+  "description": "A React-based American English pronunciation training app built for ACC's Advanced American Pronunciation course. Designed for non-native speakers from any language background.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@heroicons/react": "^2.2.0",
+    "@supabase/supabase-js": "^2.98.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.1",
+    "@vitejs/plugin-react": "^5.1.4",
+    "tailwindcss": "^4.2.1",
+    "vite": "^7.3.1"
+  }
+}
