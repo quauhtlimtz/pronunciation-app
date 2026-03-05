@@ -67,7 +67,7 @@ export function AnatomyDiagram({ onBack, darkToggle, dark }) {
                 className={`absolute rounded-full transition-all duration-200 cursor-pointer
                   ${isActive
                     ? "w-2.5 h-2.5 -ml-[5px] -mt-[5px] bg-amber-400"
-                    : "w-5 h-5 -ml-2.5 -mt-2.5 bg-transparent border border-transparent hover:bg-amber-500/20 hover:border-amber-400/50"}`}
+                    : "w-5 h-5 -ml-2.5 -mt-2.5 bg-transparent"}`}
                 style={{
                   left: `${r.x}%`,
                   top: `${r.y}%`,
