@@ -52,6 +52,89 @@ function MiniSpectrogram({ audioUrl }) {
   );
 }
 
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+async function trimLeadingSilence(blob) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const buf = await ctx.decodeAudioData(await blob.arrayBuffer());
+    const samples = buf.getChannelData(0);
+    const sr = buf.sampleRate;
+    const windowSize = Math.round(sr * 0.01); // 10ms windows
+    const threshold = Math.pow(10, -30 / 20); // -30dB
+
+    // Find first window above threshold
+    let onset = 0;
+    for (let i = 0; i < samples.length - windowSize; i += windowSize) {
+      let sum = 0;
+      for (let j = i; j < i + windowSize; j++) sum += samples[j] * samples[j];
+      if (Math.sqrt(sum / windowSize) > threshold) {
+        onset = Math.max(0, i - windowSize * 5); // keep 50ms before speech
+        break;
+      }
+    }
+
+    if (onset <= windowSize) {
+      ctx.close();
+      return URL.createObjectURL(blob); // no significant silence
+    }
+
+    // Create trimmed buffer
+    const trimmedLen = samples.length - onset;
+    const trimmed = ctx.createBuffer(buf.numberOfChannels, trimmedLen, sr);
+    for (let ch = 0; ch < buf.numberOfChannels; ch++) {
+      trimmed.copyToChannel(buf.getChannelData(ch).slice(onset), ch);
+    }
+
+    // Encode to WAV (simple, works everywhere)
+    const wavBlob = audioBufferToWav(trimmed);
+    ctx.close();
+    return URL.createObjectURL(wavBlob);
+  } catch {
+    return URL.createObjectURL(blob); // fallback: use original
+  }
+}
+
+function audioBufferToWav(buffer) {
+  const numChannels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const format = 1; // PCM
+  const bitDepth = 16;
+  const samples = buffer.getChannelData(0);
+  const dataLength = samples.length * numChannels * (bitDepth / 8);
+  const headerLength = 44;
+  const arrayBuffer = new ArrayBuffer(headerLength + dataLength);
+  const view = new DataView(arrayBuffer);
+
+  // WAV header
+  const writeString = (offset, str) => { for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i)); };
+  writeString(0, "RIFF");
+  view.setUint32(4, 36 + dataLength, true);
+  writeString(8, "WAVE");
+  writeString(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, format, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * numChannels * (bitDepth / 8), true);
+  view.setUint16(32, numChannels * (bitDepth / 8), true);
+  view.setUint16(34, bitDepth, true);
+  writeString(36, "data");
+  view.setUint32(40, dataLength, true);
+
+  // Write samples
+  let offset = 44;
+  for (let i = 0; i < samples.length; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    offset += 2;
+  }
+
+  return new Blob([arrayBuffer], { type: "audio/wav" });
+}
+
 // ─── Main component ────────────────────────────────────────────────────────
 
 const STEPS = ["listen", "shadow", "compare"];
@@ -145,7 +228,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
         if (actualId && onMicDetected) onMicDetected(actualId);
       } catch {}
 
-      // Step 2: Pre-create MediaRecorder while countdown runs (zero delay at start)
+      // Step 2: Create MediaRecorder
       const mimeType = ["audio/webm", "audio/mp4", "audio/wav"]
         .find(t => MediaRecorder.isTypeSupported(t));
       const mr = new MediaRecorder(stream, {
@@ -159,6 +242,12 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
         const blob = new Blob(chunks, { type: mr.mimeType });
         if (chunks.length === 0 || blob.size < 100) {
           setRecError("No audio captured — check your microphone and try again.");
+        } else if (isSafari) {
+          // Safari: trim leading silence from countdown warm-up period
+          trimLeadingSilence(blob).then(trimmedUrl => {
+            setRecUrl(trimmedUrl);
+            setRecError(null);
+          });
         } else {
           setRecUrl(URL.createObjectURL(blob));
           setRecError(null);
@@ -169,19 +258,22 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
       };
       mediaRecRef.current = mr;
 
-      // Step 3: Countdown (mic is live, MediaRecorder is ready)
+      // Safari: start recording BEFORE countdown to absorb MediaRecorder startup delay
+      // Other browsers: start after countdown (no delay issue)
+      if (isSafari) mr.start(250);
+
+      // Step 3: Countdown
       for (let i = 3; i >= 1; i--) {
         setCountdown(i);
         await new Promise(r => setTimeout(r, 600));
       }
       setCountdown(0);
 
-      // Step 4: Start recording — INSTANT, no setup overhead
-      // Use timeslice (250ms) to ensure Safari flushes data regularly
-      mr.start(250);
+      // Non-Safari: start recording after countdown
+      if (!isSafari) mr.start(250);
       setRec(true);
 
-      // Duration timer
+      // Duration timer starts AFTER countdown (user-visible duration)
       const t0 = Date.now();
       recTimerRef.current = setInterval(() => {
         setRecDuration(Math.round((Date.now() - t0) / 1000));
