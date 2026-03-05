@@ -5,13 +5,14 @@ import { LessonView } from "./components/LessonView";
 import { AdminPanel } from "./components/AdminPanel";
 import { IconCheck, IconArrow } from "./components/Icons";
 import { AnatomyDiagram } from "./components/AnatomyDiagram";
+import { FreeShadow } from "./components/FreeShadow";
 import { Footer } from "./components/Footer";
 import { useAuth } from "./components/AuthContext";
 import { TestRecorder } from "./TestRecorder";
 
 function getParams() {
   const p = new URLSearchParams(window.location.search);
-  return { lesson: p.get("lesson"), tab: p.get("tab"), admin: p.has("admin"), anatomy: p.has("anatomy"), test: p.has("test") };
+  return { lesson: p.get("lesson"), tab: p.get("tab"), admin: p.has("admin"), anatomy: p.has("anatomy"), shadow: p.has("shadow"), test: p.has("test") };
 }
 
 function setParams(lesson, tab) {
@@ -33,6 +34,7 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState(initial.tab || "theory");
   const [showAdmin, setShowAdmin]   = useState(initial.admin && isAdmin);
   const [showAnatomy, setShowAnatomy] = useState(initial.anatomy);
+  const [showShadow, setShowShadow] = useState(initial.shadow);
   const [dark, setDark]             = useState(null);
 
   // Build completed map from Supabase progress
@@ -44,12 +46,13 @@ export default function App() {
   // Sync URL on back/forward
   useEffect(() => {
     const onPop = () => {
-      const { lesson, tab, admin, anatomy } = getParams();
+      const { lesson, tab, admin, anatomy, shadow } = getParams();
       const def = LESSON_DEFS.find(l => l.id === lesson);
       setActive(def || null);
       setCurrentTab(tab || "theory");
       setShowAdmin(admin && isAdmin);
       setShowAnatomy(anatomy);
+      setShowShadow(shadow);
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
@@ -66,6 +69,7 @@ export default function App() {
     setActive(null);
     setShowAdmin(false);
     setShowAnatomy(false);
+    setShowShadow(false);
     setCurrentTab("theory");
     setParams(null, null);
   }, []);
@@ -115,6 +119,16 @@ export default function App() {
         onBack={goHome}
         darkToggle={<ThemeToggle dark={dark} setDark={setDark} />}
         dark={dark}
+      />
+    );
+  }
+
+  // Free shadow
+  if (showShadow) {
+    return (
+      <FreeShadow
+        onBack={goHome}
+        darkToggle={<ThemeToggle dark={dark} setDark={setDark} />}
       />
     );
   }
@@ -223,10 +237,20 @@ export default function App() {
           </div>
         )}
 
-        {/* Feb 8 session — anatomy (standalone, not AI-generated) */}
+        {/* Tools */}
         <div className="mb-7">
-          <p className="font-mono text-sm text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2.5">Feb 8, 2026</p>
+          <p className="font-mono text-sm text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2.5">Tools</p>
           <div className="flex flex-col">
+            <div
+              className="border-b border-gray-100 dark:border-gray-800 px-4 py-3.5 cursor-pointer flex items-center gap-3.5 hover:bg-white dark:hover:bg-gray-900 active:bg-white dark:active:bg-gray-900 transition-colors"
+              onClick={() => { setShowShadow(true); window.history.pushState(null, "", "?shadow"); }}
+            >
+              <div className="flex-1 min-w-0">
+                <span className="text-sm">Free Shadow</span>
+                <p className="font-mono text-sm text-gray-500 mt-1">Type any phrase · listen · shadow · compare</p>
+              </div>
+              <span className="text-gray-400 shrink-0"><IconArrow size="sm" /></span>
+            </div>
             <div
               className="border-b border-gray-100 dark:border-gray-800 px-4 py-3.5 cursor-pointer flex items-center gap-3.5 hover:bg-white dark:hover:bg-gray-900 active:bg-white dark:active:bg-gray-900 transition-colors"
               onClick={() => { setShowAnatomy(true); window.history.pushState(null, "", "?anatomy"); }}
