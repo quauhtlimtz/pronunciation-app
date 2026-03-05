@@ -7,6 +7,7 @@ import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram.esm.js";
 import { PhraseAnnotation } from "./PhraseAnnotation";
 import { PitchOverlay } from "./PitchOverlay";
 import { IconPlay, IconPause, IconStop, IconMic, IconCheck, IconArrow, IconRefresh } from "./Icons";
+import { motion } from "motion/react";
 
 const SPEC_OPTIONS = {
   labels: false,
@@ -186,10 +187,13 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
 
   function playMine() {
     if (!audioRef.current) return;
-    audioRef.current.currentTime = 0;
-    audioRef.current.play();
+    const a = audioRef.current;
+    a.currentTime = 0;
     setMyPlay(true);
-    audioRef.current.onended = () => setMyPlay(false);
+    a.onended = () => setMyPlay(false);
+    a.oncanplaythrough = () => { a.oncanplaythrough = null; a.play(); };
+    if (a.readyState >= 3) a.play();
+    else a.load();
   }
 
   function reset() { setStep("listen"); setRecUrl(null); setNatUrl(null); setRec(false); setNatPlay(false); setMyPlay(false); setRecDuration(0); setRecError(null); stopSpeak(); }
@@ -250,7 +254,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
                   <button className={`circ ${rec ? "circ-rec" : ""} ${countdown ? "opacity-50 pointer-events-none" : ""}`} onClick={rec ? stopRec : startRec} disabled={!!countdown}>
                     {countdown ? <span className="text-2xl font-mono font-bold">{countdown}</span> : rec ? <IconStop size="lg" /> : <IconMic size="lg" />}
                   </button>
-                  <div ref={recWaveRef} className="w-full rounded-md overflow-hidden" style={{ minHeight: 48 }} />
+                  <div ref={recWaveRef} className={`w-full rounded-md overflow-hidden transition-opacity ${countdown ? "opacity-0" : "opacity-100"}`} style={{ minHeight: 48 }} />
                   <p className={`text-sm ${rec ? "text-amber-700 dark:text-amber-500" : countdown ? "text-gray-400" : "text-gray-500"}`}>
                     {countdown ? "mic is live — recording starts after countdown…" : rec
                       ? <><span className="font-mono tabular-nums">{recDuration}s</span> · recording… tap to stop</>
@@ -281,19 +285,35 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
           <div className="flex flex-col gap-3.5">
 
             {/* Play buttons */}
-            <div className="grid grid-cols-2 gap-2.5">
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+              className="grid grid-cols-2 gap-2.5"
+            >
               <button className="btn btn-default gap-1 w-full" onClick={natPlay ? stopNat : playNat}>
                 {natPlay ? <><IconPause size="sm" /> pause native</> : <><IconPlay size="sm" /> play native</>}
               </button>
               <button className="btn btn-default gap-1 w-full" onClick={myPlay ? stopMine : playMine}>
                 {myPlay ? <><IconPause size="sm" /> pause yours</> : <><IconPlay size="sm" /> play yours</>}
               </button>
-            </div>
+            </motion.div>
 
-            <PitchOverlay nativeUrl={natUrl} userUrl={recUrl} />
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.15, ease: "easeOut" }}
+            >
+              <PitchOverlay nativeUrl={natUrl} userUrl={recUrl} />
+            </motion.div>
 
             {/* Spectrograms side-by-side */}
-            <div className="grid grid-cols-2 gap-2.5">
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.3, ease: "easeOut" }}
+              className="grid grid-cols-2 gap-2.5"
+            >
               <div className="card p-3">
                 <p className="mono-label mb-2 text-center">native</p>
                 <MiniSpectrogram audioUrl={natUrl} />
@@ -302,15 +322,25 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
                 <p className="mono-label mb-2 text-center">you</p>
                 <MiniSpectrogram audioUrl={recUrl} />
               </div>
-            </div>
+            </motion.div>
 
-            <p className="text-sm text-gray-500 leading-relaxed">
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3, delay: 0.45 }}
+              className="text-sm text-gray-500 leading-relaxed"
+            >
               stress: {syllables}{note ? ` · ${note}` : ""}
-            </p>
-            <div className="flex gap-2 flex-wrap">
+            </motion.p>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3, delay: 0.55 }}
+              className="flex gap-2 flex-wrap"
+            >
               <button className="btn btn-default gap-1" onClick={() => { setRecUrl(null); setNatUrl(null); setStep("shadow"); }}><IconRefresh size="sm" /> Re-record</button>
               <button className="btn btn-ghost" onClick={reset}>Start over</button>
-            </div>
+            </motion.div>
           </div>
         )}
       </div>
