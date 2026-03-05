@@ -103,6 +103,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
 
     return () => {
       if (recorder.isRecording()) recorder.stopRecording();
+      recorder.stopMic();
       ws.destroy();
       wsRef.current = null;
       recorderRef.current = null;
@@ -135,7 +136,9 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
       }
       setCountdown(0);
 
-      await recorderRef.current.startRecording({ deviceId });
+      // Start mic first (deviceId goes here), then record
+      await recorderRef.current.startMic({ deviceId });
+      await recorderRef.current.startRecording();
       setRec(true);
 
       // Detect actual device
@@ -149,6 +152,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   const stopRec = useCallback(() => {
     if (recorderRef.current?.isRecording()) {
       recorderRef.current.stopRecording();
+      recorderRef.current.stopMic();
     }
   }, []);
 
