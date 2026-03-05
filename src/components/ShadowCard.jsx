@@ -163,18 +163,15 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   async function startRec() {
     chunks.current = [];
     try {
-      const audioConstraints = micDeviceId
-        ? { deviceId: micDeviceId, channelCount: 1, autoGainControl: false, noiseSuppression: false, echoCancellation: false }
-        : { channelCount: 1, autoGainControl: false, noiseSuppression: false, echoCancellation: false };
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+      const audio = micDeviceId ? { deviceId: micDeviceId } : true;
+      const stream = await navigator.mediaDevices.getUserMedia({ audio });
       streamRef.current = stream;
 
-      // Report which device the browser actually chose
       const track = stream.getAudioTracks()[0];
       const actualId = track?.getSettings?.()?.deviceId;
       if (actualId && onMicDetected) onMicDetected(actualId);
 
-      // Countdown 3-2-1 while mic is already open
+      // Countdown 3-2-1
       for (let i = 3; i >= 1; i--) {
         setCountdown(i);
         await new Promise(r => setTimeout(r, 700));
@@ -204,26 +201,11 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   }
 
   function playMine() {
-    if (!recUrl) return;
-    // Play through Web Audio to ensure mono is centered (not left-only)
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    fetch(recUrl).then(r => r.arrayBuffer()).then(buf => ctx.decodeAudioData(buf)).then(decoded => {
-      // If mono, create stereo buffer with same data in both channels
-      let buffer = decoded;
-      if (decoded.numberOfChannels === 1) {
-        buffer = ctx.createBuffer(2, decoded.length, decoded.sampleRate);
-        const mono = decoded.getChannelData(0);
-        buffer.copyToChannel(mono, 0);
-        buffer.copyToChannel(mono, 1);
-      }
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.connect(ctx.destination);
-      source.start();
-      setMyPlay(true);
-      source.onended = () => { setMyPlay(false); ctx.close(); };
-      audioRef.current = { pause: () => { source.stop(); ctx.close(); } };
-    });
+    if (!audioRef.current) return;
+    audioRef.current.currentTime = 0;
+    audioRef.current.play();
+    setMyPlay(true);
+    audioRef.current.onended = () => setMyPlay(false);
   }
 
   function reset() { setStep("listen"); setRecUrl(null); setNatUrl(null); setRec(false); setNatPlay(false); setMyPlay(false); stopSpeak(); }
