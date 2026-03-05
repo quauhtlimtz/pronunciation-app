@@ -240,7 +240,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
         )}
 
         {step === "shadow" && (
-          <div className="flex flex-col items-center gap-2.5">
+          <div className="flex flex-col items-center justify-center gap-2.5" style={{ minHeight: 140 }}>
             <div className="flex items-center gap-2">
               <button className={`circ circ-sm ${rec ? "circ-rec" : ""} ${countdown ? "opacity-50 pointer-events-none" : ""}`} onClick={rec ? stopRec : startRec} disabled={!!countdown}>
                 {countdown ? <span className="text-lg font-mono font-bold">{countdown}</span> : rec ? <IconStop size="md" /> : <IconMic size="md" />}
