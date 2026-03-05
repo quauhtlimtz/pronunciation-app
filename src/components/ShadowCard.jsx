@@ -61,8 +61,10 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   const [rec, setRec]           = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [recUrl, setRecUrl]     = useState(null);
+  const [recDuration, setRecDuration] = useState(0);
   const [myPlay, setMyPlay]     = useState(false);
   const [denied, setDenied]     = useState(false);
+  const [recError, setRecError] = useState(null);
   const [natUrl, setNatUrl]     = useState(null);
   const audioRef   = useRef(null);
 
@@ -93,9 +95,19 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
       renderRecordedAudio: false,
     }));
 
+    recorder.on("record-progress", (time) => {
+      setRecDuration(Math.round(time / 1000));
+    });
+
     recorder.on("record-end", (blob) => {
+      if (blob.size < 1000) {
+        setRecError("Recording was too short or empty — try again.");
+        setRec(false);
+        return;
+      }
       setRecUrl(URL.createObjectURL(blob));
       setRec(false);
+      setRecError(null);
     });
 
     wsRef.current = ws;
@@ -103,7 +115,6 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
 
     return () => {
       if (recorder.isRecording()) recorder.stopRecording();
-      recorder.stopMic();
       ws.destroy();
       wsRef.current = null;
       recorderRef.current = null;
@@ -126,33 +137,46 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
 
   const startRec = useCallback(async () => {
     if (!recorderRef.current) return;
+    setRecError(null);
+    setRecDuration(0);
+
+    // Countdown 3-2-1 before recording
+    for (let i = 3; i >= 1; i--) {
+      setCountdown(i);
+      await new Promise(r => setTimeout(r, 700));
+    }
+    setCountdown(0);
+
     try {
-      const deviceId = micDeviceId || undefined;
+      // startRecording calls startMic internally — pass device constraints here
+      const constraints = micDeviceId ? { deviceId: { exact: micDeviceId } } : undefined;
+      await recorderRef.current.startRecording(constraints);
 
-      // Countdown 3-2-1 then start recording
-      for (let i = 3; i >= 1; i--) {
-        setCountdown(i);
-        await new Promise(r => setTimeout(r, 700));
+      // Verify recording actually started
+      if (!recorderRef.current.isRecording()) {
+        throw new Error("Recording failed to start");
       }
-      setCountdown(0);
-
-      // Start mic first (deviceId goes here), then record
-      await recorderRef.current.startMic({ deviceId });
-      await recorderRef.current.startRecording();
       setRec(true);
 
-      // Detect actual device
+      // Detect actual device used
       const stream = recorderRef.current.stream;
       const track = stream?.getAudioTracks()[0];
       const actualId = track?.getSettings?.()?.deviceId;
       if (actualId && onMicDetected) onMicDetected(actualId);
-    } catch { setDenied(true); }
+    } catch (e) {
+      setRec(false);
+      if (e?.name === "NotAllowedError" || e?.name === "PermissionDeniedError") {
+        setDenied(true);
+      } else {
+        setRecError(`Mic error: ${e?.message || "could not access microphone"}. Try again.`);
+      }
+    }
   }, [micDeviceId, onMicDetected]);
 
   const stopRec = useCallback(() => {
     if (recorderRef.current?.isRecording()) {
       recorderRef.current.stopRecording();
-      recorderRef.current.stopMic();
+      // stopMic is called automatically by the plugin on record-end
     }
   }, []);
 
@@ -164,7 +188,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
     audioRef.current.onended = () => setMyPlay(false);
   }
 
-  function reset() { setStep("listen"); setRecUrl(null); setNatUrl(null); setRec(false); setNatPlay(false); setMyPlay(false); stopSpeak(); }
+  function reset() { setStep("listen"); setRecUrl(null); setNatUrl(null); setRec(false); setNatPlay(false); setMyPlay(false); setRecDuration(0); setRecError(null); stopSpeak(); }
 
   const si = STEPS.indexOf(step);
   const canNav = i => i <= si || (i === 2 && recUrl);
@@ -224,12 +248,23 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
                   </button>
                   <div ref={recWaveRef} className="w-full rounded-md overflow-hidden" style={{ minHeight: 48 }} />
                   <p className={`text-sm ${rec ? "text-amber-700 dark:text-amber-500" : countdown ? "text-gray-400" : "text-gray-500"}`}>
-                    {countdown ? "get ready…" : rec ? "recording… tap to stop" : "tap to record yourself"}
+                    {countdown ? "get ready…" : rec
+                      ? <><span className="font-mono tabular-nums">{recDuration}s</span> · recording… tap to stop</>
+                      : "tap to record yourself"}
                   </p>
+                  {recError && <p className="text-sm text-amber-700 dark:text-amber-500 text-center">{recError}</p>}
                   {recUrl && !rec && (
-                    <button className="btn btn-primary min-w-[12.5rem] gap-1" onClick={() => setStep("compare")}>
-                      compare <IconArrow size="sm" />
-                    </button>
+                    <div className="flex flex-col items-center gap-2 w-full">
+                      <div className="flex items-center gap-2">
+                        <button className="btn btn-default btn-sm gap-1" onClick={playMine}>
+                          <IconPlay size="sm" /> preview
+                        </button>
+                        <span className="text-xs text-gray-400 font-mono">{recDuration}s recorded</span>
+                      </div>
+                      <button className="btn btn-primary min-w-[12.5rem] gap-1" onClick={() => setStep("compare")}>
+                        compare <IconArrow size="sm" />
+                      </button>
+                    </div>
                   )}
                 </>
             }
