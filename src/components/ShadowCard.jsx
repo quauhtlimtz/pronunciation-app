@@ -59,6 +59,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   const [step, setStep]         = useState("listen");
   const [natPlay, setNatPlay]   = useState(false);
   const [rec, setRec]           = useState(false);
+  const [countdown, setCountdown] = useState(0);
   const [recUrl, setRecUrl]     = useState(null);
   const [myPlay, setMyPlay]     = useState(false);
   const [denied, setDenied]     = useState(false);
@@ -126,6 +127,14 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
     if (!recorderRef.current) return;
     try {
       const deviceId = micDeviceId || undefined;
+
+      // Countdown 3-2-1 then start recording
+      for (let i = 3; i >= 1; i--) {
+        setCountdown(i);
+        await new Promise(r => setTimeout(r, 700));
+      }
+      setCountdown(0);
+
       await recorderRef.current.startRecording({ deviceId });
       setRec(true);
 
@@ -206,12 +215,12 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
             {denied
               ? <p className="text-sm text-amber-700 dark:text-amber-500 text-center">Microphone access denied — enable it in browser settings.</p>
               : <>
-                  <button className={`circ ${rec ? "circ-rec" : ""}`} onClick={rec ? stopRec : startRec}>
-                    {rec ? <IconStop size="lg" /> : <IconMic size="lg" />}
+                  <button className={`circ ${rec ? "circ-rec" : ""} ${countdown ? "opacity-50 pointer-events-none" : ""}`} onClick={rec ? stopRec : startRec} disabled={!!countdown}>
+                    {countdown ? <span className="text-2xl font-mono font-bold">{countdown}</span> : rec ? <IconStop size="lg" /> : <IconMic size="lg" />}
                   </button>
                   <div ref={recWaveRef} className="w-full rounded-md overflow-hidden" style={{ minHeight: 48 }} />
-                  <p className={`text-sm ${rec ? "text-amber-700 dark:text-amber-500" : "text-gray-500"}`}>
-                    {rec ? "recording… tap to stop" : "tap to record yourself"}
+                  <p className={`text-sm ${rec ? "text-amber-700 dark:text-amber-500" : countdown ? "text-gray-400" : "text-gray-500"}`}>
+                    {countdown ? "get ready…" : rec ? "recording… tap to stop" : "tap to record yourself"}
                   </p>
                   {recUrl && !rec && (
                     <button className="btn btn-primary min-w-[12.5rem] gap-1" onClick={() => setStep("compare")}>

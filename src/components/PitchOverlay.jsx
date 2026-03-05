@@ -126,7 +126,7 @@ function renderCanvas(canvas, nativePitch, userPitch) {
     ctx.fillText(`${f}`, w - pad.right - 2, y - 2);
   }
 
-  // Draw a pitch curve
+  // Draw a continuous pitch curve (gaps from unvoiced consonants are normal)
   function drawCurve(points, color) {
     if (points.length < 2) return;
     ctx.beginPath();
@@ -134,19 +134,9 @@ function renderCanvas(canvas, nativePitch, userPitch) {
     ctx.lineWidth = 2.5;
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
-
-    let started = false;
-    for (let i = 0; i < points.length; i++) {
-      const x = toX(points[i].time);
-      const y = toY(points[i].freq);
-      // Break line if there's a gap (time is normalized 0–1, so 0.05 = 5% of duration)
-      if (i > 0 && points[i].time - points[i - 1].time > 0.05) {
-        ctx.stroke();
-        ctx.beginPath();
-        started = false;
-      }
-      if (!started) { ctx.moveTo(x, y); started = true; }
-      else ctx.lineTo(x, y);
+    ctx.moveTo(toX(points[0].time), toY(points[0].freq));
+    for (let i = 1; i < points.length; i++) {
+      ctx.lineTo(toX(points[i].time), toY(points[i].freq));
     }
     ctx.stroke();
   }
@@ -224,7 +214,8 @@ export function PitchOverlay({ nativeUrl, userUrl }) {
 
   return (
     <div className="card p-3">
-      <p className="mono-label mb-2 text-center">pitch contour</p>
+      <p className="mono-label mb-1 text-center">pitch contour</p>
+      <p className="text-xs text-gray-400 mb-2 text-center">intonation pattern — try to match the native speaker's melody</p>
       {loading && <p className="text-xs text-gray-400 text-center py-4">analyzing…</p>}
       {error && <p className="text-xs text-gray-400 text-center py-4">{error}</p>}
       {pitchData && (
