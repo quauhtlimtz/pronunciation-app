@@ -275,9 +275,10 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
           </div>
         )}
 
+        {recUrl && <audio ref={audioRef} src={recUrl} className="hidden" />}
+
         {step === "compare" && (
           <div className="flex flex-col gap-3.5">
-            {recUrl && <audio ref={audioRef} src={recUrl} className="hidden" />}
 
             {/* Play buttons */}
             <div className="grid grid-cols-2 gap-2.5">
