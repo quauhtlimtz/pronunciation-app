@@ -56,83 +56,29 @@ function MiniSpectrogram({ audioUrl }) {
 
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
-async function trimLeadingSilence(blob) {
+// Detect leading silence offset (in seconds) without re-encoding
+async function detectSilenceOffset(blob) {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const buf = await ctx.decodeAudioData(await blob.arrayBuffer());
     const samples = buf.getChannelData(0);
     const sr = buf.sampleRate;
-    const windowSize = Math.round(sr * 0.01); // 10ms windows
+    const windowSize = Math.round(sr * 0.01); // 10ms
     const threshold = Math.pow(10, -30 / 20); // -30dB
 
-    // Find first window above threshold
-    let onset = 0;
     for (let i = 0; i < samples.length - windowSize; i += windowSize) {
       let sum = 0;
       for (let j = i; j < i + windowSize; j++) sum += samples[j] * samples[j];
       if (Math.sqrt(sum / windowSize) > threshold) {
-        onset = Math.max(0, i - windowSize * 5); // keep 50ms before speech
-        break;
+        ctx.close();
+        return Math.max(0, i / sr - 0.05); // 50ms before speech onset
       }
     }
-
-    if (onset <= windowSize) {
-      ctx.close();
-      return URL.createObjectURL(blob); // no significant silence
-    }
-
-    // Create trimmed buffer
-    const trimmedLen = samples.length - onset;
-    const trimmed = ctx.createBuffer(buf.numberOfChannels, trimmedLen, sr);
-    for (let ch = 0; ch < buf.numberOfChannels; ch++) {
-      trimmed.copyToChannel(buf.getChannelData(ch).slice(onset), ch);
-    }
-
-    // Encode to WAV (simple, works everywhere)
-    const wavBlob = audioBufferToWav(trimmed);
     ctx.close();
-    return URL.createObjectURL(wavBlob);
+    return 0;
   } catch {
-    return URL.createObjectURL(blob); // fallback: use original
+    return 0;
   }
-}
-
-function audioBufferToWav(buffer) {
-  const numChannels = buffer.numberOfChannels;
-  const sampleRate = buffer.sampleRate;
-  const format = 1; // PCM
-  const bitDepth = 16;
-  const samples = buffer.getChannelData(0);
-  const dataLength = samples.length * numChannels * (bitDepth / 8);
-  const headerLength = 44;
-  const arrayBuffer = new ArrayBuffer(headerLength + dataLength);
-  const view = new DataView(arrayBuffer);
-
-  // WAV header
-  const writeString = (offset, str) => { for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i)); };
-  writeString(0, "RIFF");
-  view.setUint32(4, 36 + dataLength, true);
-  writeString(8, "WAVE");
-  writeString(12, "fmt ");
-  view.setUint32(16, 16, true);
-  view.setUint16(20, format, true);
-  view.setUint16(22, numChannels, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * numChannels * (bitDepth / 8), true);
-  view.setUint16(32, numChannels * (bitDepth / 8), true);
-  view.setUint16(34, bitDepth, true);
-  writeString(36, "data");
-  view.setUint32(40, dataLength, true);
-
-  // Write samples
-  let offset = 44;
-  for (let i = 0; i < samples.length; i++) {
-    const s = Math.max(-1, Math.min(1, samples[i]));
-    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-    offset += 2;
-  }
-
-  return new Blob([arrayBuffer], { type: "audio/wav" });
 }
 
 // ─── Main component ────────────────────────────────────────────────────────
@@ -150,6 +96,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   const [denied, setDenied]     = useState(false);
   const [recError, setRecError] = useState(null);
   const [natUrl, setNatUrl]     = useState(null);
+  const silenceOffsetRef = useRef(0);
   const audioRef   = useRef(null);
 
   // Wavesurfer Record plugin for live waveform (mic visualization only)
@@ -242,14 +189,15 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
         const blob = new Blob(chunks, { type: mr.mimeType });
         if (chunks.length === 0 || blob.size < 100) {
           setRecError("No audio captured — check your microphone and try again.");
-        } else if (isSafari) {
-          // Safari: trim leading silence from countdown warm-up period
-          trimLeadingSilence(blob).then(trimmedUrl => {
-            setRecUrl(trimmedUrl);
-            setRecError(null);
-          });
         } else {
-          setRecUrl(URL.createObjectURL(blob));
+          const url = URL.createObjectURL(blob);
+          // Safari: detect silence offset from countdown warm-up (skip on playback)
+          if (isSafari) {
+            detectSilenceOffset(blob).then(offset => {
+              silenceOffsetRef.current = offset;
+            });
+          }
+          setRecUrl(url);
           setRecError(null);
         }
         setRec(false);
@@ -301,15 +249,15 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
   function playMine() {
     if (!audioRef.current) return;
     const a = audioRef.current;
-    a.currentTime = 0;
+    a.currentTime = silenceOffsetRef.current;
     setMyPlay(true);
     a.onended = () => setMyPlay(false);
-    a.oncanplaythrough = () => { a.oncanplaythrough = null; a.play(); };
+    a.oncanplaythrough = () => { a.oncanplaythrough = null; a.currentTime = silenceOffsetRef.current; a.play(); };
     if (a.readyState >= 3) a.play();
     else a.load();
   }
 
-  function reset() { setStep("listen"); setRecUrl(null); setNatUrl(null); setRec(false); setNatPlay(false); setMyPlay(false); setRecDuration(0); setRecError(null); stopSpeak(); }
+  function reset() { setStep("listen"); setRecUrl(null); setNatUrl(null); setRec(false); setNatPlay(false); setMyPlay(false); setRecDuration(0); setRecError(null); silenceOffsetRef.current = 0; stopSpeak(); }
 
   const si = STEPS.indexOf(step);
   const canNav = i => i <= si || (i === 2 && recUrl);
@@ -451,7 +399,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micDeviceId, 
               transition={{ duration: 0.3, delay: 0.55 }}
               className="flex gap-2 flex-wrap"
             >
-              <button className="btn btn-default gap-1" onClick={() => { setRecUrl(null); setNatUrl(null); setRecDuration(0); setRecError(null); setMyPlay(false); setStep("shadow"); }}><IconRefresh size="sm" /> Re-record</button>
+              <button className="btn btn-default gap-1" onClick={() => { setRecUrl(null); setNatUrl(null); setRecDuration(0); setRecError(null); setMyPlay(false); silenceOffsetRef.current = 0; setStep("shadow"); }}><IconRefresh size="sm" /> Re-record</button>
               <button className="btn btn-ghost" onClick={reset}>Start over</button>
             </motion.div>
           </div>
