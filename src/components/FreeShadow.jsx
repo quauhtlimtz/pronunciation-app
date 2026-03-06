@@ -150,6 +150,7 @@ export function FreeShadow({ onBack, darkToggle }) {
 
   const handleStreamReady = useCallback((stream) => {
     if (micStreamRef.current && micStreamRef.current !== stream) {
+      // Stop previous stream tracks to avoid resource leaks, but only if the stream is truly different
       micStreamRef.current.getTracks().forEach(t => t.stop());
     }
     micStreamRef.current = stream;

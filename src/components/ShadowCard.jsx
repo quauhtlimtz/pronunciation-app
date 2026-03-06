@@ -150,7 +150,40 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
 
   // ─── Recording (same approach as test page) ────────────────────────────
 
-  const micReady = !!micStreamRef?.current;
+  const micReady = !!micStreamRef?.current && 
+    micStreamRef.current.getAudioTracks().length > 0 &&
+    micStreamRef.current.getAudioTracks()[0].readyState === 'live';
+
+  // Safari-specific: Function to refresh stream when needed
+  const refreshStreamIfNeeded = useCallback(async () => {
+    if (!micStreamRef?.current) return false;
+    
+    const tracks = micStreamRef.current.getAudioTracks();
+    if (tracks.length === 0 || tracks[0].readyState === 'ended') {
+      try {
+        // Get the current device ID to maintain consistency
+        const currentTrack = tracks[0];
+        const settings = currentTrack?.getSettings?.() || {};
+        const deviceId = settings.deviceId;
+        
+        // Request a new stream with the same device
+        const newStream = await navigator.mediaDevices.getUserMedia({
+          audio: deviceId ? { deviceId: { exact: deviceId } } : true
+        });
+        
+        // Stop old tracks
+        micStreamRef.current.getTracks().forEach(t => t.stop());
+        
+        // Update the ref with new stream
+        micStreamRef.current = newStream;
+        return true;
+      } catch (error) {
+        console.warn('Failed to refresh microphone stream:', error);
+        return false;
+      }
+    }
+    return true;
+  }, [micStreamRef]);
 
   const startRec = useCallback(async () => {
     const stream = micStreamRef?.current;
@@ -159,12 +192,33 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
       return;
     }
 
+    // Safari-specific: Check and refresh stream if needed
+    const streamReady = await refreshStreamIfNeeded();
+    if (!streamReady) {
+      setRecError("Microphone connection lost. Please re-enable your microphone.");
+      return;
+    }
+
+    // Get the potentially refreshed stream
+    const currentStream = micStreamRef?.current;
+    if (!currentStream) {
+      setRecError("Enable your microphone first.");
+      return;
+    }
+
+    // Check if the stream tracks are still active
+    const audioTracks = currentStream.getAudioTracks();
+    if (audioTracks.length === 0 || audioTracks[0].readyState === 'ended') {
+      setRecError("Microphone connection lost. Please re-enable your microphone.");
+      return;
+    }
+
     setRecError(null);
     setRecDuration(0);
     setRecReady(false);
 
-    // Create MediaRecorder from the already-open stream
-    const recorder = new MediaRecorder(stream);
+    // Create MediaRecorder from the stream
+    const recorder = new MediaRecorder(currentStream);
     mediaRecorderRef.current = recorder;
     chunksRef.current = [];
 
@@ -175,18 +229,32 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
       clearInterval(recTimerRef.current);
       const blob = new Blob(chunksRef.current, { type: recorder.mimeType });
       if (blob.size < 100) {
+        // Safari-specific: Try to refresh stream for next recording
+        refreshStreamIfNeeded().catch(() => {});
         setRecError("No audio captured — check your microphone and try again.");
       } else {
         trimSilence(blob).then(url => {
           setRecUrl(url);
           setRecError(null);
+          // Safari-specific: Proactively refresh stream for next recording
+          refreshStreamIfNeeded().catch(() => {});
         }).catch(() => {
           setRecUrl(URL.createObjectURL(blob));
           setRecError(null);
+          // Safari-specific: Proactively refresh stream for next recording
+          refreshStreamIfNeeded().catch(() => {});
         });
       }
       setRec(false);
       mediaRecorderRef.current = null;
+    };
+
+    recorder.onerror = (event) => {
+      console.warn('MediaRecorder error:', event);
+      setRecError("Recording failed. Please try again.");
+      setRec(false);
+      mediaRecorderRef.current = null;
+      clearInterval(recTimerRef.current);
     };
 
     recorder.start();
@@ -206,7 +274,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     recTimerRef.current = setInterval(() => {
       setRecDuration(Math.round((Date.now() - t0) / 1000));
     }, 500);
-  }, [micStreamRef]);
+  }, [micStreamRef, refreshStreamIfNeeded]);
 
   const stopRec = useCallback(() => {
     if (mediaRecorderRef.current?.state === "recording") {
