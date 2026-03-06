@@ -233,16 +233,14 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
       mediaRecorderRef.current = null;
     };
 
-    recorder.start();
-
-    // 300ms warmup for Safari, then countdown
-    await new Promise(r => setTimeout(r, 300));
-
+    // Countdown first, then start recording
     for (let i = 3; i >= 1; i--) {
       setCountdown(i);
       await new Promise(r => setTimeout(r, 1000));
     }
     setCountdown(0);
+
+    recorder.start();
     setRec(true);
 
     // Duration timer (from when user starts speaking)
