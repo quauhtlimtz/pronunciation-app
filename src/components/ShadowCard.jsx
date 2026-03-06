@@ -98,19 +98,29 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     };
   }, []);
 
-  const playNat  = () => { setNatPlay(true);  speak(phrase, () => setNatPlay(false)); };
+  // Mobile browsers kill the mic stream when audio plays through speakers.
+  // Proactively invalidate the ref so all ShadowCards see micReady=false.
+  const invalidateMic = useCallback(() => {
+    if (micStreamRef?.current) {
+      micStreamRef.current.getTracks().forEach(t => t.stop());
+      micStreamRef.current = null;
+    }
+  }, [micStreamRef]);
+
+  const playNat  = () => { invalidateMic(); setNatPlay(true);  speak(phrase, () => setNatPlay(false)); };
   const stopNat  = () => { stopSpeak(); setNatPlay(false); };
   const stopMine = () => { audioRef.current?.pause(); setMyPlay(false); };
 
   const playNatAudio = useCallback(() => {
     if (!natAudioRef.current || !natUrl) return;
+    invalidateMic();
     const a = natAudioRef.current;
     a.currentTime = 0;
     a.volume = natVol;
     setNatPlay(true);
     a.onended = () => setNatPlay(false);
     a.play();
-  }, [natUrl, natVol]);
+  }, [natUrl, natVol, invalidateMic]);
   const stopNatAudio = useCallback(() => {
     natAudioRef.current?.pause();
     setNatPlay(false);
@@ -126,6 +136,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
 
   const playBoth = useCallback(() => {
     if (!natAudioRef.current || !audioRef.current || !natUrl || !recUrl) return;
+    invalidateMic();
     const na = natAudioRef.current;
     const ua = audioRef.current;
     na.currentTime = 0;
@@ -143,7 +154,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
 
     na.play();
     ua.play();
-  }, [natUrl, recUrl, natVol, userVol, stopBoth]);
+  }, [natUrl, recUrl, natVol, userVol, stopBoth, invalidateMic]);
 
   useEffect(() => { if (natAudioRef.current) natAudioRef.current.volume = natVol; }, [natVol]);
   useEffect(() => { if (audioRef.current) audioRef.current.volume = userVol; }, [userVol]);
@@ -167,15 +178,11 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
 
   const startRec = useCallback(async () => {
     let stream = micStreamRef?.current;
-    if (!stream) {
-      setRecError("Enable your microphone first.");
-      return;
-    }
+    const track = stream?.getAudioTracks()[0];
+    const needsRefresh = !stream || !track || track.readyState === "ended";
 
-    // Safari mobile kills mic tracks when audio plays through speakers.
-    // Re-acquire the stream if tracks are no longer live.
-    const track = stream.getAudioTracks()[0];
-    if (!track || track.readyState === "ended") {
+    if (needsRefresh) {
+      // Mic was invalidated (audio playback killed it) — auto re-acquire
       try {
         const deviceId = track?.getSettings?.()?.deviceId;
         const constraints = deviceId
@@ -184,7 +191,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
         stream = await navigator.mediaDevices.getUserMedia(constraints);
         micStreamRef.current = stream;
       } catch {
-        setRecError("Microphone lost — tap Enable Microphone at the bottom.");
+        setRecError("Microphone lost — tap the mic button at the bottom.");
         return;
       }
     }
@@ -246,6 +253,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
 
   function playMine() {
     if (!audioRef.current || !recReady) return;
+    invalidateMic();
     const a = audioRef.current;
     a.currentTime = 0;
     setMyPlay(true);
