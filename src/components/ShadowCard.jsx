@@ -340,14 +340,13 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
 
             {recError && <p className="text-sm text-amber-700 dark:text-amber-500 text-center">{recError}</p>}
             {recUrl && !rec && (
-              <div className="flex items-center gap-2 w-full">
-                <button className="btn btn-primary flex-1 gap-1" onClick={() => setStep("compare")}>
+              <div className="flex flex-col gap-2 w-full">
+                <button className="btn btn-default gap-1 w-full" onClick={myPlay ? stopMine : playMine} disabled={!recReady}>
+                  {myPlay ? <><IconPause size="sm" /> stop preview</> : recReady ? <><IconPlay size="sm" /> preview recording · {recDuration}s</> : <><IconPlay size="sm" /> loading…</>}
+                </button>
+                <button className="btn btn-primary gap-1 w-full" onClick={() => setStep("compare")}>
                   compare <IconArrow size="sm" />
                 </button>
-                <button className="btn btn-default btn-sm gap-1" onClick={myPlay ? stopMine : playMine} disabled={!recReady}>
-                  {myPlay ? <><IconPause size="sm" /> stop</> : recReady ? <><IconPlay size="sm" /> preview</> : <><IconPlay size="sm" /> loading…</>}
-                </button>
-                <span className="text-xs text-gray-400 font-mono shrink-0">{recDuration}s</span>
               </div>
             )}
           </div>
