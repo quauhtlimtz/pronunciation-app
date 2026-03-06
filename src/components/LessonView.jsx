@@ -61,7 +61,7 @@ function MicBar({ deviceId, onChange, onStreamReady, visible }) {
       ) : (
         <div className="relative pointer-events-auto">
           <button
-            className="btn btn-default btn-sm gap-1.5 text-left max-w-[calc(100vw-2rem)] shadow-lg bg-white dark:bg-gray-900"
+            className="btn btn-primary btn-sm gap-1.5 text-left max-w-[calc(100vw-2rem)] shadow-lg"
             onClick={() => devices.length > 1 ? setOpen(!open) : null}
           >
             <IconMic size="sm" />

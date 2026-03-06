@@ -150,7 +150,20 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
 
   // ─── Recording (same approach as test page) ────────────────────────────
 
-  const micReady = !!micStreamRef?.current;
+  const [micLive, setMicLive] = useState(false);
+
+  // Track mic liveness — listen for track ending (Safari kills tracks on audio playback)
+  useEffect(() => {
+    const check = () => {
+      const track = micStreamRef?.current?.getAudioTracks()[0];
+      setMicLive(!!track && track.readyState === "live");
+    };
+    check();
+    const iv = setInterval(check, 500);
+    return () => clearInterval(iv);
+  }, [micStreamRef]);
+
+  const micReady = micLive;
 
   const startRec = useCallback(async () => {
     let stream = micStreamRef?.current;
