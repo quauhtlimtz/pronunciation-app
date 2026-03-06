@@ -150,12 +150,21 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
 
   // ─── Recording (same approach as test page) ────────────────────────────
 
-  const micReady = !!micStreamRef?.current;
+  const micReady = !!micStreamRef?.current && 
+    micStreamRef.current.getAudioTracks().length > 0 &&
+    micStreamRef.current.getAudioTracks()[0].readyState === 'live';
 
   const startRec = useCallback(async () => {
     const stream = micStreamRef?.current;
     if (!stream) {
       setRecError("Enable your microphone first.");
+      return;
+    }
+
+    // Check if the stream tracks are still active
+    const audioTracks = stream.getAudioTracks();
+    if (audioTracks.length === 0 || audioTracks[0].readyState === 'ended') {
+      setRecError("Microphone connection lost. Please re-enable your microphone.");
       return;
     }
 
