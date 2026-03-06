@@ -1,0 +1,24 @@
+name: Claude Auto-Fix Issues
+
+on:
+  issues:
+    types: [labeled]          # Trigger when label like "claude-fix" is added
+  issue_comment:
+    types: [created]          # Or trigger with @claude comment on an issue
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  fix-issue:
+    if: |
+      (github.event_name == 'issues' && contains(github.event.label.name, 'claude-fix')) ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # model: claude-opus-4-6   # Uncomment for Opus
