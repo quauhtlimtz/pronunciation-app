@@ -153,10 +153,27 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
   const micReady = !!micStreamRef?.current;
 
   const startRec = useCallback(async () => {
-    const stream = micStreamRef?.current;
+    let stream = micStreamRef?.current;
     if (!stream) {
       setRecError("Enable your microphone first.");
       return;
+    }
+
+    // Safari mobile kills mic tracks when audio plays through speakers.
+    // Re-acquire the stream if tracks are no longer live.
+    const track = stream.getAudioTracks()[0];
+    if (!track || track.readyState === "ended") {
+      try {
+        const deviceId = track?.getSettings?.()?.deviceId;
+        const constraints = deviceId
+          ? { audio: { deviceId: { exact: deviceId } } }
+          : { audio: true };
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        micStreamRef.current = stream;
+      } catch {
+        setRecError("Microphone lost — tap the mic selector to re-enable.");
+        return;
+      }
     }
 
     setRecError(null);
