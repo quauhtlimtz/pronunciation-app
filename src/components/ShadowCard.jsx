@@ -184,41 +184,29 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
   const micReady = micLive;
 
   const startRec = useCallback(async () => {
-    let stream = micStreamRef?.current;
-    const track = stream?.getAudioTracks()[0];
-    const needsRefresh = !stream || !track || track.readyState === "ended";
-
-    if (needsRefresh) {
-      // Mic was invalidated (audio playback killed it) — auto re-acquire
-      try {
-        const deviceId = track?.getSettings?.()?.deviceId;
-        const constraints = deviceId
-          ? { audio: { deviceId: { exact: deviceId } } }
-          : { audio: true };
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
-        micStreamRef.current = stream;
-      } catch {
-        setRecError("Microphone lost — tap the mic button at the bottom.");
-        return;
-      }
-    }
-
+    // 1. Stop any audio playback and clear old recording first
+    //    Safari won't give mic access while speaker is active.
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ""; }
+    if (natAudioRef.current) { natAudioRef.current.pause(); }
+    stopSpeak();
+    setMyPlay(false);
+    setNatPlay(false);
     setRecUrl(null);
     setRecError(null);
     setRecDuration(0);
     setRecReady(false);
 
-    // Countdown first
+    // 2. Countdown (also lets React re-render and remove audio elements)
     for (let i = 3; i >= 1; i--) {
       setCountdown(i);
       await new Promise(r => setTimeout(r, 1000));
     }
     setCountdown(0);
 
-    // Re-check stream is still alive after countdown
-    stream = micStreamRef?.current;
-    const postTrack = stream?.getAudioTracks()[0];
-    if (!stream || !postTrack || postTrack.readyState === "ended") {
+    // 3. Acquire stream AFTER countdown — audio is fully stopped by now
+    let stream = micStreamRef?.current;
+    const track = stream?.getAudioTracks()[0];
+    if (!stream || !track || track.readyState === "ended") {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         micStreamRef.current = stream;
@@ -228,7 +216,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
       }
     }
 
-    // Create MediaRecorder and start immediately
+    // 4. Create MediaRecorder and start immediately
     const recorder = new MediaRecorder(stream);
     mediaRecorderRef.current = recorder;
     chunksRef.current = [];
