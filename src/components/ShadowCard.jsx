@@ -233,7 +233,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
 
     for (let i = 3; i >= 1; i--) {
       setCountdown(i);
-      await new Promise(r => setTimeout(r, 600));
+      await new Promise(r => setTimeout(r, 1000));
     }
     setCountdown(0);
     setRec(true);
