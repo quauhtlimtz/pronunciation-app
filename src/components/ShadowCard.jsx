@@ -203,6 +203,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
       }
     }
 
+    setRecUrl(null);
     setRecError(null);
     setRecDuration(0);
     setRecReady(false);
