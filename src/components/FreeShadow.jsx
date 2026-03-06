@@ -86,7 +86,7 @@ export function FreeShadow({ onBack, darkToggle }) {
   // Load daily usage + first page of pool
   useEffect(() => {
     if (!user) return;
-    getGenerationsToday(user.id).then(setUsedToday);
+    getGenerationsToday(user.id).then(setUsedToday).catch(e => console.error("getGenerationsToday:", e));
     loadPool(0);
   }, [user]);
 

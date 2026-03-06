@@ -75,13 +75,13 @@ export async function fetchPhrasePool(userId, page = 0) {
   const from = page * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
+  // RLS policies already filter: read_own (user_id match) + read_public (private=false)
   const { data, error, count } = await supabase
     .from("free_shadow_content")
     .select("*", { count: "exact" })
-    .or(`private.eq.false,user_id.eq.${userId}`)
     .order("created_at", { ascending: false })
     .range(from, to);
 
-  if (error) console.error("fetch pool:", error);
+  if (error) console.error("fetchPhrasePool:", error);
   return { items: data || [], total: count || 0, hasMore: (data?.length || 0) === PAGE_SIZE };
 }
