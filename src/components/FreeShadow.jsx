@@ -98,8 +98,9 @@ export function FreeShadow({ onBack, darkToggle }) {
       setPool(prev => p === 0 ? items : [...prev, ...items]);
       setHasMore(more);
       setPage(p);
-    } catch {}
-    finally { setLoadingPool(false); }
+    } catch (e) {
+      console.error("loadPool:", e);
+    } finally { setLoadingPool(false); }
   }
 
   const canGenerate = user && usedToday !== null && usedToday < dailyLimit;
@@ -149,8 +150,9 @@ export function FreeShadow({ onBack, darkToggle }) {
       setPool(prev => p === 0 ? (data || []) : [...prev, ...(data || [])]);
       setHasMore((data?.length || 0) === 20);
       setPage(p);
-    } catch {}
-    finally { setLoadingPool(false); }
+    } catch (e) {
+      console.error("loadPoolPublic:", e);
+    } finally { setLoadingPool(false); }
   }
 
   return (

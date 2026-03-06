@@ -77,13 +77,13 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     getTtsUrl(phrase).then(url => {
       if (url) setNatUrl(url);
       else setNatError(true);
-    });
+    }).catch(() => setNatError(true));
   }, [phrase]);
 
   // Preload ffmpeg + native TTS when entering shadow step
   useEffect(() => {
     if (step === "shadow" || step === "compare") {
-      preloadFFmpeg();
+      preloadFFmpeg().catch(() => {});
       if (!natUrl) fetchNative();
     }
   }, [step, phrase]);
@@ -169,7 +169,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
       setMyPlay(false);
       setNatPlay(false);
       setBothPlay(false);
-    });
+    }).catch(e => console.error("startRec:", e));
   };
 
   function reset() {

@@ -227,7 +227,7 @@ export default function App() {
                   Admin
                 </button>
               )}
-              <button className="btn btn-ghost btn-sm" onClick={signOut}>Sign out</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => signOut().catch(console.error)}>Sign out</button>
             </div>
           </div>
         ) : (
