@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { ShadowCard } from "./ShadowCard";
 import { StressLegend } from "./PhraseAnnotation";
-import { IconBack, IconMic, IconArrow, IconRefresh } from "./Icons";
+import { MicBar } from "./MicBar";
+import { IconBack, IconArrow, IconRefresh } from "./Icons";
 import { useAuth } from "./AuthContext";
 import {
   generatePhrase,
@@ -10,79 +11,6 @@ import {
   getGenerationsToday,
   getDailyLimit,
 } from "../services/freeShadow";
-
-function MicSelector({ deviceId, onChange, onStreamReady }) {
-  const [devices, setDevices] = useState([]);
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [enabled, setEnabled] = useState(false);
-
-  async function enableMic() {
-    setLoading(true);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const all = await navigator.mediaDevices.enumerateDevices();
-      const mics = all.filter(d => d.kind === "audioinput");
-      setDevices(mics);
-      setEnabled(true);
-      const track = stream.getAudioTracks()[0];
-      const actualId = track?.getSettings?.()?.deviceId || "";
-      if (actualId) onChange(actualId);
-      onStreamReady(stream);
-    } catch { /* permission denied */ }
-    finally { setLoading(false); }
-  }
-
-  async function switchDevice(newId) {
-    onChange(newId);
-    setOpen(false);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { deviceId: { exact: newId } }
-      });
-      onStreamReady(stream);
-    } catch {}
-  }
-
-  const current = devices.find(d => d.deviceId === deviceId);
-  const label = current?.label || (deviceId ? "Selected microphone" : "Default microphone");
-
-  if (!enabled) {
-    return (
-      <button className="btn btn-default btn-sm gap-1.5" onClick={enableMic} disabled={loading}>
-        <IconMic size="sm" />
-        <span>{loading ? "…" : "Enable Mic"}</span>
-      </button>
-    );
-  }
-
-  return (
-    <div className="relative shrink-0">
-      <button className="btn btn-default btn-sm gap-1.5 text-left max-w-full" onClick={() => setOpen(!open)}>
-        <IconMic size="sm" />
-        <span className="truncate">{label}</span>
-      </button>
-      {open && devices.length > 0 && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[16rem] max-w-[calc(100vw-2rem)]">
-            {devices.map(d => (
-              <button key={d.deviceId}
-                className={`block w-full text-left px-3 py-2 text-sm truncate cursor-pointer
-                  ${d.deviceId === deviceId
-                    ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50"}`}
-                onClick={() => switchDevice(d.deviceId)}
-              >
-                {d.label || `Microphone ${d.deviceId.slice(0, 8)}`}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
 
 // ─── Pool card (collapsed, expandable to ShadowCard) ─────────────────────────
 
@@ -242,14 +170,13 @@ export function FreeShadow({ onBack, darkToggle }) {
               )}
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
-              <MicSelector deviceId={micDeviceId} onChange={setMicDeviceId} onStreamReady={handleStreamReady} />
               {darkToggle}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-[40rem] mx-auto px-4 pt-5 pb-safe flex-1 w-full">
+      <div className="max-w-[40rem] mx-auto px-4 pt-5 pb-14 flex-1 w-full">
         {/* Generation UI — logged-in users only */}
         {user ? (
           <>
@@ -364,6 +291,14 @@ export function FreeShadow({ onBack, darkToggle }) {
           </p>
         )}
       </div>
+
+      <MicBar
+        visible={true}
+        deviceId={micDeviceId}
+        onChange={setMicDeviceId}
+        micStreamRef={micStreamRef}
+        onStreamReady={handleStreamReady}
+      />
     </div>
   );
 }

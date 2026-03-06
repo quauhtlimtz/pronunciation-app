@@ -268,7 +268,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
 
   function reset() {
     setStep("listen"); setRecUrl(null); setNatUrl(null); setRec(false); setNatPlay(false); setMyPlay(false);
-    setBothPlay(false); setRecDuration(0); setRecError(null); setRecReady(false);
+    setBothPlay(false); setRecDuration(0); setRecError(null); setRecReady(false); setNatError(false);
     stopSpeak(); natAudioRef.current?.pause(); audioRef.current?.pause();
     if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
   }
@@ -445,7 +445,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
               transition={{ duration: 0.3, delay: 0.55 }}
               className="flex gap-2 flex-wrap"
             >
-              <button className="btn btn-default gap-1" onClick={() => { stopBoth(); setRecUrl(null); setNatUrl(null); setRecDuration(0); setRecError(null); setRecReady(false); setStep("shadow"); }}><IconRefresh size="sm" /> Re-record</button>
+              <button className="btn btn-default gap-1" onClick={() => { stopBoth(); setRecUrl(null); setNatUrl(null); setRecDuration(0); setRecError(null); setRecReady(false); setNatError(false); setStep("shadow"); }}><IconRefresh size="sm" /> Re-record</button>
               <button className="btn btn-ghost" onClick={reset}>Start over</button>
             </motion.div>
           </div>
