@@ -105,29 +105,21 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     };
   }, []);
 
-  // Mobile browsers kill the mic stream when audio plays through speakers.
-  // Proactively invalidate the ref so all ShadowCards see micReady=false.
-  const invalidateMic = useCallback(() => {
-    if (micStreamRef?.current) {
-      micStreamRef.current.getTracks().forEach(t => t.stop());
-      micStreamRef.current = null;
-    }
-  }, [micStreamRef]);
+  // ─── Audio playback (no mic management needed) ────────────────────────
 
-  const playNat  = () => { invalidateMic(); setNatPlay(true);  speak(phrase, () => setNatPlay(false)); };
+  const playNat  = () => { setNatPlay(true);  speak(phrase, () => setNatPlay(false)); };
   const stopNat  = () => { stopSpeak(); setNatPlay(false); };
   const stopMine = () => { audioRef.current?.pause(); setMyPlay(false); };
 
   const playNatAudio = useCallback(() => {
     if (!natAudioRef.current || !natUrl) return;
-    invalidateMic();
     const a = natAudioRef.current;
     a.currentTime = 0;
     a.volume = natVol;
     setNatPlay(true);
     a.onended = () => setNatPlay(false);
     a.play();
-  }, [natUrl, natVol, invalidateMic]);
+  }, [natUrl, natVol]);
   const stopNatAudio = useCallback(() => {
     natAudioRef.current?.pause();
     setNatPlay(false);
@@ -143,7 +135,6 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
 
   const playBoth = useCallback(() => {
     if (!natAudioRef.current || !audioRef.current || !natUrl || !recUrl) return;
-    invalidateMic();
     const na = natAudioRef.current;
     const ua = audioRef.current;
     na.currentTime = 0;
@@ -161,62 +152,60 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
 
     na.play();
     ua.play();
-  }, [natUrl, recUrl, natVol, userVol, stopBoth, invalidateMic]);
+  }, [natUrl, recUrl, natVol, userVol, stopBoth]);
 
   useEffect(() => { if (natAudioRef.current) natAudioRef.current.volume = natVol; }, [natVol]);
   useEffect(() => { if (audioRef.current) audioRef.current.volume = userVol; }, [userVol]);
 
-  // ─── Recording (same approach as test page) ────────────────────────────
+  function playMine() {
+    if (!audioRef.current || !recReady) return;
+    const a = audioRef.current;
+    a.currentTime = 0;
+    setMyPlay(true);
+    a.onended = () => setMyPlay(false);
+    a.play();
+  }
 
-  const [micLive, setMicLive] = useState(false);
+  // ─── Mic permission check ────────────────────────────────────────────────
+  // micReady just means "user has granted mic permission" — we don't track
+  // stream liveness because startRec always gets a fresh stream.
+  const micReady = !!micStreamRef?.current;
 
-  // Track mic liveness — listen for track ending (Safari kills tracks on audio playback)
-  useEffect(() => {
-    const check = () => {
-      const track = micStreamRef?.current?.getAudioTracks()[0];
-      setMicLive(!!track && track.readyState === "live");
-    };
-    check();
-    const iv = setInterval(check, 500);
-    return () => clearInterval(iv);
-  }, [micStreamRef]);
-
-  const micReady = micLive;
+  // ─── Recording ────────────────────────────────────────────────────────────
 
   const startRec = useCallback(async () => {
-    // 1. Stop any audio playback and clear old recording first
-    //    Safari won't give mic access while speaker is active.
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ""; }
-    if (natAudioRef.current) { natAudioRef.current.pause(); }
+    // 1. Stop all audio playback
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current.removeAttribute("src"); audioRef.current.load(); }
+    if (natAudioRef.current) natAudioRef.current.pause();
     stopSpeak();
     setMyPlay(false);
     setNatPlay(false);
+    setBothPlay(false);
+
+    // 2. Clear previous recording
     setRecUrl(null);
     setRecError(null);
     setRecDuration(0);
     setRecReady(false);
 
-    // 2. Countdown (also lets React re-render and remove audio elements)
+    // 3. Countdown
     for (let i = 3; i >= 1; i--) {
       setCountdown(i);
       await new Promise(r => setTimeout(r, 1000));
     }
     setCountdown(0);
 
-    // 3. Acquire stream AFTER countdown — audio is fully stopped by now
-    let stream = micStreamRef?.current;
-    const track = stream?.getAudioTracks()[0];
-    if (!stream || !track || track.readyState === "ended") {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        micStreamRef.current = stream;
-      } catch {
-        setRecError("Microphone lost — tap the mic button at the bottom.");
-        return;
-      }
+    // 4. Always get a fresh mic stream (browser may have killed the old one)
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStreamRef.current = stream;
+    } catch {
+      setRecError("Could not access microphone.");
+      return;
     }
 
-    // 4. Create MediaRecorder and start immediately
+    // 5. Create MediaRecorder and start
     const recorder = new MediaRecorder(stream);
     mediaRecorderRef.current = recorder;
     chunksRef.current = [];
@@ -226,6 +215,8 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     };
     recorder.onstop = () => {
       clearInterval(recTimerRef.current);
+      // Stop the stream we created — next recording will get a fresh one
+      stream.getTracks().forEach(t => t.stop());
       const blob = new Blob(chunksRef.current, { type: recorder.mimeType });
       if (blob.size < 100) {
         setRecError("No audio captured — check your microphone and try again.");
@@ -245,7 +236,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     recorder.start();
     setRec(true);
 
-    // Duration timer (from when user starts speaking)
+    // Duration timer
     const t0 = Date.now();
     recTimerRef.current = setInterval(() => {
       setRecDuration(Math.round((Date.now() - t0) / 1000));
@@ -257,16 +248,6 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
       mediaRecorderRef.current.stop();
     }
   }, []);
-
-  function playMine() {
-    if (!audioRef.current || !recReady) return;
-    invalidateMic();
-    const a = audioRef.current;
-    a.currentTime = 0;
-    setMyPlay(true);
-    a.onended = () => setMyPlay(false);
-    a.play();
-  }
 
   function reset() {
     setStep("listen"); setRecUrl(null); setNatUrl(null); setRec(false); setNatPlay(false); setMyPlay(false);
@@ -327,15 +308,15 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
         {step === "shadow" && (
           <div className="flex flex-col items-center justify-center gap-2.5" style={{ minHeight: 140 }}>
             <div className="flex items-center gap-2">
-              <button className={`circ circ-sm ${rec ? "circ-rec" : ""} ${countdown || !micReady ? "opacity-50 pointer-events-none" : ""}`}
-                onClick={rec ? stopRec : startRec} disabled={!!countdown || (!rec && !micReady)}>
+              <button className={`circ circ-sm ${rec ? "circ-rec" : ""} ${countdown ? "opacity-50 pointer-events-none" : ""}`}
+                onClick={rec ? stopRec : startRec} disabled={!!countdown}>
                 {countdown ? <span className="text-lg font-mono font-bold">{countdown}</span> : rec ? <IconStop size="md" /> : <IconMic size="md" />}
               </button>
               <div className="text-left">
                 <p className={`text-sm ${rec ? "text-amber-700 dark:text-amber-500" : countdown ? "text-gray-400" : "text-gray-500"}`}>
                   {countdown ? "get ready…" : rec
                     ? <><span className="font-mono tabular-nums">{recDuration}s</span> · recording…</>
-                    : micReady ? "tap to record" : "mic off — tap below"}
+                    : "tap to record"}
                 </p>
                 {!rec && !countdown && !recUrl && (
                   <button className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer bg-transparent border-none p-0" onClick={natPlay ? stopNat : playNat}>

@@ -303,11 +303,7 @@ export function LessonView({ def, onBack, completed, progress: lessonProgress, o
         visible={tab === "shadowing" && !loading && !!content}
         deviceId={micDeviceId}
         onChange={setMicDeviceId}
-        micStreamRef={micStreamRef}
         onStreamReady={(stream) => {
-          if (micStreamRef.current && micStreamRef.current !== stream) {
-            micStreamRef.current.getTracks().forEach(t => t.stop());
-          }
           micStreamRef.current = stream;
         }}
       />

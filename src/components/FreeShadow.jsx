@@ -296,7 +296,6 @@ export function FreeShadow({ onBack, darkToggle }) {
         visible={true}
         deviceId={micDeviceId}
         onChange={setMicDeviceId}
-        micStreamRef={micStreamRef}
         onStreamReady={handleStreamReady}
       />
     </div>
