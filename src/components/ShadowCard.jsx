@@ -74,6 +74,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const recTimerRef = useRef(null);
+  const refreshMicAfterAudio = useRef(false);
 
   // Preload ffmpeg when entering shadow step
   useEffect(() => {
@@ -100,7 +101,14 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
 
   const playNat  = () => { setNatPlay(true);  speak(phrase, () => setNatPlay(false)); };
   const stopNat  = () => { stopSpeak(); setNatPlay(false); };
-  const stopMine = () => { audioRef.current?.pause(); setMyPlay(false); };
+  const stopMine = () => { 
+    audioRef.current?.pause(); 
+    setMyPlay(false);
+    // Refresh mic if audio was playing (Safari mobile fix)
+    if (refreshMicAfterAudio.current) {
+      setTimeout(() => refreshMicStreamIfNeeded(), 100);
+    }
+  };
 
   const playNatAudio = useCallback(() => {
     if (!natAudioRef.current || !natUrl) return;
@@ -108,13 +116,25 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     a.currentTime = 0;
     a.volume = natVol;
     setNatPlay(true);
-    a.onended = () => setNatPlay(false);
+    
+    // Mark that we need to refresh mic after audio playback (Safari mobile issue)
+    refreshMicAfterAudio.current = true;
+    
+    a.onended = () => {
+      setNatPlay(false);
+      // Refresh microphone stream after audio playback ends (Safari mobile fix)
+      setTimeout(() => refreshMicStreamIfNeeded(), 100);
+    };
     a.play();
-  }, [natUrl, natVol]);
+  }, [natUrl, natVol, refreshMicStreamIfNeeded]);
   const stopNatAudio = useCallback(() => {
     natAudioRef.current?.pause();
     setNatPlay(false);
-  }, []);
+    // Refresh mic if audio was playing (Safari mobile fix)
+    if (refreshMicAfterAudio.current) {
+      setTimeout(() => refreshMicStreamIfNeeded(), 100);
+    }
+  }, [refreshMicStreamIfNeeded]);
 
   const stopBoth = useCallback(() => {
     natAudioRef.current?.pause();
@@ -122,7 +142,11 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     setBothPlay(false);
     setNatPlay(false);
     setMyPlay(false);
-  }, []);
+    // Refresh mic if audio was playing (Safari mobile fix)
+    if (refreshMicAfterAudio.current) {
+      setTimeout(() => refreshMicStreamIfNeeded(), 100);
+    }
+  }, [refreshMicStreamIfNeeded]);
 
   const playBoth = useCallback(() => {
     if (!natAudioRef.current || !audioRef.current || !natUrl || !recUrl) return;
@@ -136,26 +160,76 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     setNatPlay(true);
     setMyPlay(true);
 
+    // Mark that we need to refresh mic after audio playback (Safari mobile issue)
+    refreshMicAfterAudio.current = true;
+
     let ended = 0;
-    const onEnd = () => { ended++; if (ended >= 2) stopBoth(); };
+    const onEnd = () => { 
+      ended++; 
+      if (ended >= 2) {
+        stopBoth();
+        // Refresh microphone stream after audio playback ends (Safari mobile fix)
+        setTimeout(() => refreshMicStreamIfNeeded(), 100);
+      }
+    };
     na.onended = onEnd;
     ua.onended = onEnd;
 
     na.play();
     ua.play();
-  }, [natUrl, recUrl, natVol, userVol, stopBoth]);
+  }, [natUrl, recUrl, natVol, userVol, stopBoth, refreshMicStreamIfNeeded]);
 
   useEffect(() => { if (natAudioRef.current) natAudioRef.current.volume = natVol; }, [natVol]);
   useEffect(() => { if (audioRef.current) audioRef.current.volume = userVol; }, [userVol]);
 
   // ─── Recording (same approach as test page) ────────────────────────────
 
-  const micReady = !!micStreamRef?.current;
+  const micReady = !!micStreamRef?.current && 
+    micStreamRef.current.getTracks().some(track => track.readyState === 'live');
+
+  // Function to refresh microphone stream after audio playback interference
+  const refreshMicStreamIfNeeded = useCallback(async () => {
+    if (!refreshMicAfterAudio.current) return;
+    refreshMicAfterAudio.current = false;
+    
+    try {
+      // Get current device if possible
+      let deviceId = null;
+      const currentStream = micStreamRef?.current;
+      if (currentStream && currentStream.getTracks().length > 0) {
+        const track = currentStream.getTracks()[0];
+        const settings = track.getSettings();
+        deviceId = settings.deviceId;
+        // Clean up old stream
+        currentStream.getTracks().forEach(t => t.stop());
+      }
+
+      // Request fresh microphone stream with same device
+      const constraints = { 
+        audio: deviceId ? { deviceId: { exact: deviceId } } : true 
+      };
+      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+      micStreamRef.current = newStream;
+    } catch (error) {
+      console.warn('Failed to refresh microphone stream:', error);
+      // Clear the stream reference so user knows to re-enable
+      micStreamRef.current = null;
+    }
+  }, [micStreamRef]);
 
   const startRec = useCallback(async () => {
     const stream = micStreamRef?.current;
     if (!stream) {
       setRecError("Enable your microphone first.");
+      return;
+    }
+
+    // Check if stream tracks are actually live (Safari mobile issue after audio playback)
+    const liveTracks = stream.getTracks().filter(track => track.readyState === 'live');
+    if (liveTracks.length === 0) {
+      setRecError("Microphone connection lost. Try clicking the mic selector.");
+      // Try to refresh the stream automatically
+      await refreshMicStreamIfNeeded();
       return;
     }
 
@@ -206,7 +280,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     recTimerRef.current = setInterval(() => {
       setRecDuration(Math.round((Date.now() - t0) / 1000));
     }, 500);
-  }, [micStreamRef]);
+  }, [micStreamRef, refreshMicStreamIfNeeded]);
 
   const stopRec = useCallback(() => {
     if (mediaRecorderRef.current?.state === "recording") {
@@ -219,7 +293,15 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     const a = audioRef.current;
     a.currentTime = 0;
     setMyPlay(true);
-    a.onended = () => setMyPlay(false);
+    
+    // Mark that we need to refresh mic after audio playback (Safari mobile issue)
+    refreshMicAfterAudio.current = true;
+    
+    a.onended = () => {
+      setMyPlay(false);
+      // Refresh microphone stream after audio playback ends (Safari mobile fix)
+      setTimeout(() => refreshMicStreamIfNeeded(), 100);
+    };
     a.play();
   }
 
