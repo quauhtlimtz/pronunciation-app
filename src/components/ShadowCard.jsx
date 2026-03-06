@@ -75,14 +75,11 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
   const chunksRef = useRef([]);
   const recTimerRef = useRef(null);
 
-  // Preload ffmpeg when entering shadow step
+  // Preload ffmpeg + native TTS when entering shadow step so they're ready for compare
   useEffect(() => {
-    if (step === "shadow") preloadFFmpeg();
-  }, [step]);
-
-  useEffect(() => {
-    if (step === "compare") {
-      getTtsUrl(phrase).then(url => url && setNatUrl(url));
+    if (step === "shadow" || step === "compare") {
+      preloadFFmpeg();
+      if (!natUrl) getTtsUrl(phrase).then(url => url && setNatUrl(url));
     }
   }, [step, phrase]);
 
@@ -367,8 +364,8 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
               className="flex flex-col gap-2.5"
             >
               <div className="grid grid-cols-2 gap-2.5">
-                <button className="btn btn-default gap-1 w-full" onClick={natPlay ? stopNatAudio : playNatAudio}>
-                  {natPlay ? <><IconPause size="sm" /> native</> : <><IconPlay size="sm" /> native</>}
+                <button className="btn btn-default gap-1 w-full" onClick={natPlay ? stopNatAudio : playNatAudio} disabled={!natUrl}>
+                  {!natUrl ? "loading native…" : natPlay ? <><IconPause size="sm" /> native</> : <><IconPlay size="sm" /> native</>}
                 </button>
                 <button className="btn btn-default gap-1 w-full" onClick={myPlay ? stopMine : playMine}>
                   {myPlay ? <><IconPause size="sm" /> yours</> : <><IconPlay size="sm" /> yours</>}
