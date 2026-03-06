@@ -86,7 +86,7 @@ function MicSelector({ deviceId, onChange, onStreamReady }) {
 
 // ─── Pool card (collapsed, expandable to ShadowCard) ─────────────────────────
 
-function PoolItem({ item, micStreamRef, expanded, onToggle }) {
+function PoolItem({ item, micStreamRef, refreshMicStream, expanded, onToggle }) {
   return (
     <div className="card mb-2.5">
       <button
@@ -115,6 +115,7 @@ function PoolItem({ item, micStreamRef, expanded, onToggle }) {
             note={item.note}
             tokens={item.tokens}
             micStreamRef={micStreamRef}
+            refreshMicStream={refreshMicStream}
           />
         </div>
       )}
@@ -154,6 +155,20 @@ export function FreeShadow({ onBack, darkToggle }) {
     }
     micStreamRef.current = stream;
   }, []);
+
+  // Function to refresh microphone stream - reuses the current device
+  const refreshMicStream = useCallback(async () => {
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        audio: micDeviceId ? { deviceId: { exact: micDeviceId } } : true
+      });
+      handleStreamReady(newStream);
+      return newStream;
+    } catch (error) {
+      console.error('Failed to refresh mic stream:', error);
+      throw error;
+    }
+  }, [micDeviceId, handleStreamReady]);
 
   // Load daily usage + first page of pool
   useEffect(() => {
@@ -321,6 +336,7 @@ export function FreeShadow({ onBack, darkToggle }) {
                   note={active.note}
                   tokens={active.tokens}
                   micStreamRef={micStreamRef}
+                  refreshMicStream={refreshMicStream}
                 />
               </div>
             )}
@@ -342,6 +358,7 @@ export function FreeShadow({ onBack, darkToggle }) {
                 key={item.id}
                 item={item}
                 micStreamRef={micStreamRef}
+                refreshMicStream={refreshMicStream}
                 expanded={expandedId === item.id}
                 onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
               />

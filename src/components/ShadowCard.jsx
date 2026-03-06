@@ -55,7 +55,7 @@ function MiniSpectrogram({ audioUrl }) {
 
 const STEPS = ["listen", "shadow", "compare"];
 
-export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef, savedDone, onRecordingChange }) {
+export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef, savedDone, onRecordingChange, refreshMicStream }) {
   const [step, setStep]         = useState("listen");
   const [natPlay, setNatPlay]   = useState(false);
   const [rec, setRec]           = useState(false);
@@ -150,12 +150,51 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
 
   // ─── Recording (same approach as test page) ────────────────────────────
 
-  const micReady = !!micStreamRef?.current;
+  // Enhanced micReady check: verify stream exists and tracks are live
+  const micReady = useMemo(() => {
+    const stream = micStreamRef?.current;
+    if (!stream) return false;
+    const tracks = stream.getAudioTracks();
+    return tracks.length > 0 && tracks.some(track => track.readyState === 'live');
+  }, [micStreamRef?.current]);
+
+  // Function to refresh microphone stream when needed
+  const refreshStreamIfNeeded = useCallback(async () => {
+    if (!refreshMicStream) return false;
+    
+    const stream = micStreamRef?.current;
+    if (!stream) return false;
+    
+    const tracks = stream.getAudioTracks();
+    const hasDeadTracks = tracks.some(track => track.readyState !== 'live');
+    
+    if (hasDeadTracks) {
+      try {
+        console.log('Safari mobile: Refreshing stream due to dead tracks');
+        await refreshMicStream();
+        return true;
+      } catch (error) {
+        console.warn('Failed to refresh stream:', error);
+        return false;
+      }
+    }
+    return false;
+  }, [refreshMicStream, micStreamRef]);
 
   const startRec = useCallback(async () => {
+    // Check if stream needs refreshing before starting recording
+    await refreshStreamIfNeeded();
+    
     const stream = micStreamRef?.current;
     if (!stream) {
       setRecError("Enable your microphone first.");
+      return;
+    }
+
+    // Verify stream tracks are live before creating MediaRecorder
+    const tracks = stream.getAudioTracks();
+    if (!tracks.length || !tracks.some(track => track.readyState === 'live')) {
+      setRecError("Microphone connection lost. Click the mic selector to reconnect.");
       return;
     }
 
@@ -187,6 +226,17 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
       }
       setRec(false);
       mediaRecorderRef.current = null;
+      
+      // Proactively refresh stream after recording for Safari mobile compatibility
+      setTimeout(() => {
+        refreshStreamIfNeeded();
+      }, 100);
+    };
+    
+    recorder.onerror = (event) => {
+      console.error('MediaRecorder error:', event);
+      setRecError("Recording error occurred. Please try again.");
+      setRec(false);
     };
 
     recorder.start();
@@ -206,7 +256,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     recTimerRef.current = setInterval(() => {
       setRecDuration(Math.round((Date.now() - t0) / 1000));
     }, 500);
-  }, [micStreamRef]);
+  }, [micStreamRef, refreshStreamIfNeeded]);
 
   const stopRec = useCallback(() => {
     if (mediaRecorderRef.current?.state === "recording") {
