@@ -208,7 +208,27 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     setRecDuration(0);
     setRecReady(false);
 
-    // Create MediaRecorder from the already-open stream
+    // Countdown first
+    for (let i = 3; i >= 1; i--) {
+      setCountdown(i);
+      await new Promise(r => setTimeout(r, 1000));
+    }
+    setCountdown(0);
+
+    // Re-check stream is still alive after countdown
+    stream = micStreamRef?.current;
+    const postTrack = stream?.getAudioTracks()[0];
+    if (!stream || !postTrack || postTrack.readyState === "ended") {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        micStreamRef.current = stream;
+      } catch {
+        setRecError("Microphone lost — tap the mic button at the bottom.");
+        return;
+      }
+    }
+
+    // Create MediaRecorder and start immediately
     const recorder = new MediaRecorder(stream);
     mediaRecorderRef.current = recorder;
     chunksRef.current = [];
@@ -233,13 +253,6 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
       setRec(false);
       mediaRecorderRef.current = null;
     };
-
-    // Countdown first, then start recording
-    for (let i = 3; i >= 1; i--) {
-      setCountdown(i);
-      await new Promise(r => setTimeout(r, 1000));
-    }
-    setCountdown(0);
 
     recorder.start();
     setRec(true);
@@ -348,7 +361,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
             {recUrl && !rec && (
               <div className="flex flex-col gap-2 w-full">
                 <button className="btn btn-default gap-1 w-full" onClick={myPlay ? stopMine : playMine} disabled={!recReady}>
-                  {myPlay ? <><IconPause size="sm" /> stop preview</> : recReady ? <><IconPlay size="sm" /> preview recording · {recDuration}s</> : <><IconPlay size="sm" /> loading…</>}
+                  {myPlay ? <><IconPause size="sm" /> stop</> : recReady ? <><IconPlay size="sm" /> preview · {recDuration}s</> : <><IconPlay size="sm" /> loading…</>}
                 </button>
                 <button className="btn btn-primary gap-1 w-full" onClick={() => setStep("compare")}>
                   compare <IconArrow size="sm" />
