@@ -2,9 +2,9 @@ name: Claude Auto-Fix Issues
 
 on:
   issues:
-    types: [labeled]          # Trigger when label like "claude-fix" is added
+    types: [labeled]
   issue_comment:
-    types: [created]          # Or trigger with @claude comment on an issue
+    types: [created]
 
 permissions:
   contents: write
@@ -23,7 +23,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify git repo
+        run: git status
+
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # model: claude-opus-4-6   # Uncomment for Opus
