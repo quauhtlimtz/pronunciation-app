@@ -75,11 +75,21 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
   const chunksRef = useRef([]);
   const recTimerRef = useRef(null);
 
+  const [natError, setNatError] = useState(false);
+
+  const fetchNative = useCallback(() => {
+    setNatError(false);
+    getTtsUrl(phrase).then(url => {
+      if (url) setNatUrl(url);
+      else setNatError(true);
+    });
+  }, [phrase]);
+
   // Preload ffmpeg + native TTS when entering shadow step so they're ready for compare
   useEffect(() => {
     if (step === "shadow" || step === "compare") {
       preloadFFmpeg();
-      if (!natUrl) getTtsUrl(phrase).then(url => url && setNatUrl(url));
+      if (!natUrl) fetchNative();
     }
   }, [step, phrase]);
 
@@ -364,8 +374,8 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
               className="flex flex-col gap-2.5"
             >
               <div className="grid grid-cols-2 gap-2.5">
-                <button className="btn btn-default gap-1 w-full" onClick={natPlay ? stopNatAudio : playNatAudio} disabled={!natUrl}>
-                  {!natUrl ? "loading native…" : natPlay ? <><IconPause size="sm" /> native</> : <><IconPlay size="sm" /> native</>}
+                <button className="btn btn-default gap-1 w-full" onClick={!natUrl ? fetchNative : natPlay ? stopNatAudio : playNatAudio} disabled={!natUrl && !natError}>
+                  {natError ? <><IconRefresh size="sm" /> retry native</> : !natUrl ? "loading native…" : natPlay ? <><IconPause size="sm" /> native</> : <><IconPlay size="sm" /> native</>}
                 </button>
                 <button className="btn btn-default gap-1 w-full" onClick={myPlay ? stopMine : playMine}>
                   {myPlay ? <><IconPause size="sm" /> yours</> : <><IconPlay size="sm" /> yours</>}
@@ -411,7 +421,11 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
             >
               <div className="card p-3">
                 <p className="mono-label mb-2 text-center">native</p>
-                <MiniSpectrogram audioUrl={natUrl} />
+                {natUrl ? <MiniSpectrogram audioUrl={natUrl} /> : (
+                  <div className="flex items-center justify-center text-xs text-gray-400" style={{ minHeight: 220 }}>
+                    {natError ? <button className="btn btn-default btn-sm gap-1" onClick={fetchNative}><IconRefresh size="sm" /> retry</button> : "loading…"}
+                  </div>
+                )}
               </div>
               <div className="card p-3">
                 <p className="mono-label mb-2 text-center">you</p>
