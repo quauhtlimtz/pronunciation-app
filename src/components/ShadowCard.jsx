@@ -6,7 +6,8 @@ import { PhraseAnnotation } from "./PhraseAnnotation";
 import { PitchOverlay } from "./PitchOverlay";
 import { IconPlay, IconPause, IconStop, IconMic, IconCheck, IconArrow, IconRefresh } from "./Icons";
 import { motion } from "motion/react";
-import { trimSilence, preloadFFmpeg } from "../services/audioTrim";
+import { preloadFFmpeg } from "../services/audioTrim";
+import { useRecorder } from "../hooks/useRecorder";
 
 const SPEC_OPTIONS = {
   labels: false,
@@ -58,24 +59,18 @@ const STEPS = ["listen", "shadow", "compare"];
 export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef, savedDone, onRecordingChange }) {
   const [step, setStep]         = useState("listen");
   const [natPlay, setNatPlay]   = useState(false);
-  const [rec, setRec]           = useState(false);
-  const [countdown, setCountdown] = useState(0);
-  const [recUrl, setRecUrl]     = useState(null);
-  const [recDuration, setRecDuration] = useState(0);
   const [myPlay, setMyPlay]     = useState(false);
-  const [recError, setRecError] = useState(null);
   const [natUrl, setNatUrl]     = useState(null);
-  const audioRef   = useRef(null);
+  const [natError, setNatError] = useState(false);
   const natAudioRef = useRef(null);
   const [bothPlay, setBothPlay] = useState(false);
   const [natVol, setNatVol]     = useState(1);
   const [userVol, setUserVol]   = useState(1);
-  const [recReady, setRecReady] = useState(false);
-  const mediaRecorderRef = useRef(null);
-  const chunksRef = useRef([]);
-  const recTimerRef = useRef(null);
 
-  const [natError, setNatError] = useState(false);
+  const {
+    rec, countdown, recUrl, recDuration, recError, recReady, audioRef,
+    startRec, stopRec, clearRec, cleanup, setRecReady,
+  } = useRecorder();
 
   const fetchNative = useCallback(() => {
     setNatError(false);
@@ -85,7 +80,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     });
   }, [phrase]);
 
-  // Preload ffmpeg + native TTS when entering shadow step so they're ready for compare
+  // Preload ffmpeg + native TTS when entering shadow step
   useEffect(() => {
     if (step === "shadow" || step === "compare") {
       preloadFFmpeg();
@@ -97,15 +92,9 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     onRecordingChange?.(!!recUrl);
   }, [recUrl]);
 
-  // Cleanup on unmount (stream is owned by LessonView, don't stop it here)
-  useEffect(() => {
-    return () => {
-      clearInterval(recTimerRef.current);
-      if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
-    };
-  }, []);
+  useEffect(() => cleanup, []);
 
-  // ─── Audio playback (no mic management needed) ────────────────────────
+  // ─── Audio playback ──────────────────────────────────────────────────
 
   const playNat  = () => { setNatPlay(true);  speak(phrase, () => setNatPlay(false)); };
   const stopNat  = () => { stopSpeak(); setNatPlay(false); };
@@ -120,6 +109,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     a.onended = () => setNatPlay(false);
     a.play();
   }, [natUrl, natVol]);
+
   const stopNatAudio = useCallback(() => {
     natAudioRef.current?.pause();
     setNatPlay(false);
@@ -166,94 +156,26 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     a.play();
   }
 
-  // ─── Mic permission check ────────────────────────────────────────────────
-  // micReady just means "user has granted mic permission" — we don't track
-  // stream liveness because startRec always gets a fresh stream.
+  // ─── Helpers ─────────────────────────────────────────────────────────
+
   const micReady = !!micStreamRef?.current;
 
-  // ─── Recording ────────────────────────────────────────────────────────────
-
-  const startRec = useCallback(async () => {
-    // 1. Stop all audio playback
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current.removeAttribute("src"); audioRef.current.load(); }
-    if (natAudioRef.current) natAudioRef.current.pause();
-    stopSpeak();
-    setMyPlay(false);
-    setNatPlay(false);
-    setBothPlay(false);
-
-    // 2. Clear previous recording
-    setRecUrl(null);
-    setRecError(null);
-    setRecDuration(0);
-    setRecReady(false);
-
-    // 3. Countdown
-    for (let i = 3; i >= 1; i--) {
-      setCountdown(i);
-      await new Promise(r => setTimeout(r, 1000));
-    }
-    setCountdown(0);
-
-    // 4. Always get a fresh mic stream (browser may have killed the old one)
-    let stream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      micStreamRef.current = stream;
-    } catch {
-      setRecError("Could not access microphone.");
-      return;
-    }
-
-    // 5. Create MediaRecorder and start
-    const recorder = new MediaRecorder(stream);
-    mediaRecorderRef.current = recorder;
-    chunksRef.current = [];
-
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) chunksRef.current.push(e.data);
-    };
-    recorder.onstop = () => {
-      clearInterval(recTimerRef.current);
-      // Stop the stream we created — next recording will get a fresh one
-      stream.getTracks().forEach(t => t.stop());
-      const blob = new Blob(chunksRef.current, { type: recorder.mimeType });
-      if (blob.size < 100) {
-        setRecError("No audio captured — check your microphone and try again.");
-      } else {
-        trimSilence(blob).then(url => {
-          setRecUrl(url);
-          setRecError(null);
-        }).catch(() => {
-          setRecUrl(URL.createObjectURL(blob));
-          setRecError(null);
-        });
-      }
-      setRec(false);
-      mediaRecorderRef.current = null;
-    };
-
-    recorder.start();
-    setRec(true);
-
-    // Duration timer
-    const t0 = Date.now();
-    recTimerRef.current = setInterval(() => {
-      setRecDuration(Math.round((Date.now() - t0) / 1000));
-    }, 500);
-  }, [micStreamRef]);
-
-  const stopRec = useCallback(() => {
-    if (mediaRecorderRef.current?.state === "recording") {
-      mediaRecorderRef.current.stop();
-    }
-  }, []);
+  const handleStartRec = () => {
+    startRec(() => {
+      // Stop all audio before recording
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current.removeAttribute("src"); audioRef.current.load(); }
+      if (natAudioRef.current) natAudioRef.current.pause();
+      stopSpeak();
+      setMyPlay(false);
+      setNatPlay(false);
+      setBothPlay(false);
+    });
+  };
 
   function reset() {
-    setStep("listen"); setRecUrl(null); setNatUrl(null); setRec(false); setNatPlay(false); setMyPlay(false);
-    setBothPlay(false); setRecDuration(0); setRecError(null); setRecReady(false); setNatError(false);
+    setStep("listen"); clearRec(); setNatUrl(null); setNatPlay(false); setMyPlay(false);
+    setBothPlay(false); setNatError(false);
     stopSpeak(); natAudioRef.current?.pause(); audioRef.current?.pause();
-    if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
   }
 
   const si = STEPS.indexOf(step);
@@ -309,7 +231,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
           <div className="flex flex-col items-center justify-center gap-2.5" style={{ minHeight: 140 }}>
             <div className="flex items-center gap-2">
               <button className={`circ circ-sm ${rec ? "circ-rec" : ""} ${countdown ? "opacity-50 pointer-events-none" : ""}`}
-                onClick={rec ? stopRec : startRec} disabled={!!countdown}>
+                onClick={rec ? stopRec : handleStartRec} disabled={!!countdown}>
                 {countdown ? <span className="text-lg font-mono font-bold">{countdown}</span> : rec ? <IconStop size="md" /> : <IconMic size="md" />}
               </button>
               <div className="text-left">
@@ -428,7 +350,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
               transition={{ duration: 0.3, delay: 0.55 }}
               className="flex gap-2 flex-wrap"
             >
-              <button className="btn btn-default gap-1" onClick={() => { stopBoth(); setRecUrl(null); setNatUrl(null); setRecDuration(0); setRecError(null); setRecReady(false); setNatError(false); setStep("shadow"); }}><IconRefresh size="sm" /> Re-record</button>
+              <button className="btn btn-default gap-1" onClick={() => { stopBoth(); clearRec(); setNatUrl(null); setNatError(false); setStep("shadow"); }}><IconRefresh size="sm" /> Re-record</button>
               <button className="btn btn-ghost" onClick={reset}>Start over</button>
             </motion.div>
           </div>
