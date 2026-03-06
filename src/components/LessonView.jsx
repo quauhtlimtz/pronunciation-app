@@ -7,7 +7,7 @@ import { StressLegend } from "./PhraseAnnotation";
 import { IconBack, IconRefresh, IconCheck, IconArrow, IconClose, IconMic } from "./Icons";
 import { Footer } from "./Footer";
 
-function MicSelector({ deviceId, onChange, onStreamReady }) {
+function MicBar({ deviceId, onChange, onStreamReady, visible }) {
   const [devices, setDevices] = useState([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -16,19 +16,16 @@ function MicSelector({ deviceId, onChange, onStreamReady }) {
   async function enableMic() {
     setLoading(true);
     try {
-      // Get permission + enumerate devices
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const all = await navigator.mediaDevices.enumerateDevices();
       const mics = all.filter(d => d.kind === "audioinput");
       setDevices(mics);
       setEnabled(true);
 
-      // Detect actual device and notify parent
       const track = stream.getAudioTracks()[0];
       const actualId = track?.getSettings?.()?.deviceId || "";
       if (actualId) onChange(actualId);
 
-      // Keep stream alive and pass it up
       onStreamReady(stream);
     } catch { /* permission denied */ }
     finally { setLoading(false); }
@@ -37,7 +34,6 @@ function MicSelector({ deviceId, onChange, onStreamReady }) {
   async function switchDevice(newId) {
     onChange(newId);
     setOpen(false);
-    // Open new stream with selected device
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { deviceId: { exact: newId } }
@@ -46,48 +42,50 @@ function MicSelector({ deviceId, onChange, onStreamReady }) {
     } catch { /* fallback: keep old stream */ }
   }
 
+  if (!visible) return null;
+
   const current = devices.find(d => d.deviceId === deviceId);
   const label = current?.label || (deviceId ? "Selected microphone" : "Default microphone");
 
-  if (!enabled) {
-    return (
-      <button
-        className="btn btn-default btn-sm gap-1.5"
-        onClick={enableMic}
-        disabled={loading}
-      >
-        <IconMic size="sm" />
-        <span>{loading ? "…" : "Enable Mic"}</span>
-      </button>
-    );
-  }
-
   return (
-    <div className="relative shrink-0">
-      <button
-        className="btn btn-default btn-sm gap-1.5 text-left max-w-full"
-        onClick={() => setOpen(!open)}
-      >
-        <IconMic size="sm" />
-        <span className="truncate">{label}</span>
-      </button>
-      {open && devices.length > 0 && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[16rem] max-w-[calc(100vw-2rem)]">
-            {devices.map(d => (
-              <button key={d.deviceId}
-                className={`block w-full text-left px-3 py-2 text-sm truncate cursor-pointer
-                  ${d.deviceId === deviceId
-                    ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50"}`}
-                onClick={() => switchDevice(d.deviceId)}
-              >
-                {d.label || `Microphone ${d.deviceId.slice(0, 8)}`}
-              </button>
-            ))}
-          </div>
-        </>
+    <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] px-3 pointer-events-none">
+      {!enabled ? (
+        <button
+          className="btn btn-primary btn-sm gap-1.5 shadow-lg pointer-events-auto"
+          onClick={enableMic}
+          disabled={loading}
+        >
+          <IconMic size="sm" />
+          <span>{loading ? "enabling…" : "Enable Microphone"}</span>
+        </button>
+      ) : (
+        <div className="relative pointer-events-auto">
+          <button
+            className="btn btn-default btn-sm gap-1.5 text-left max-w-[calc(100vw-2rem)] shadow-lg bg-white dark:bg-gray-900"
+            onClick={() => devices.length > 1 ? setOpen(!open) : null}
+          >
+            <IconMic size="sm" />
+            <span className="truncate text-xs">{label}</span>
+          </button>
+          {open && devices.length > 1 && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[16rem] max-w-[calc(100vw-2rem)]">
+                {devices.map(d => (
+                  <button key={d.deviceId}
+                    className={`block w-full text-left px-3 py-2 text-sm truncate cursor-pointer
+                      ${d.deviceId === deviceId
+                        ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                        : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50"}`}
+                    onClick={() => switchDevice(d.deviceId)}
+                  >
+                    {d.label || `Microphone ${d.deviceId.slice(0, 8)}`}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       )}
     </div>
   );
@@ -363,20 +361,7 @@ export function LessonView({ def, onBack, completed, progress: lessonProgress, o
             )}
 
             {tab === "shadowing" && (
-              <div>
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <p className="text-sm text-gray-500 leading-relaxed hidden sm:block pt-1">
-                    listen, shadow, compare · record yourself imitating the native speaker
-                  </p>
-                  <MicSelector deviceId={micDeviceId} onChange={setMicDeviceId}
-                    onStreamReady={(stream) => {
-                      // Stop previous stream if switching devices
-                      if (micStreamRef.current && micStreamRef.current !== stream) {
-                        micStreamRef.current.getTracks().forEach(t => t.stop());
-                      }
-                      micStreamRef.current = stream;
-                    }} />
-                </div>
+              <div className="pb-14">
                 <StressLegend />
                 {content.shadowing.map((p, i) => {
                   const savedDone = lessonProgress?.shadowing_done || [];
@@ -396,6 +381,18 @@ export function LessonView({ def, onBack, completed, progress: lessonProgress, o
       <div className="max-w-[40rem] mx-auto px-4 w-full">
         <Footer />
       </div>
+
+      <MicBar
+        visible={tab === "shadowing" && !loading && !!content}
+        deviceId={micDeviceId}
+        onChange={setMicDeviceId}
+        onStreamReady={(stream) => {
+          if (micStreamRef.current && micStreamRef.current !== stream) {
+            micStreamRef.current.getTracks().forEach(t => t.stop());
+          }
+          micStreamRef.current = stream;
+        }}
+      />
 
       {confirmAction && (
         <ConfirmDialog

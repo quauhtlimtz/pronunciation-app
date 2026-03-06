@@ -171,7 +171,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
         stream = await navigator.mediaDevices.getUserMedia(constraints);
         micStreamRef.current = stream;
       } catch {
-        setRecError("Microphone lost — tap the mic selector to re-enable.");
+        setRecError("Microphone lost — tap Enable Microphone at the bottom.");
         return;
       }
     }
