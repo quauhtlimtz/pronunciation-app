@@ -49,7 +49,16 @@ async function fetchTts(text) {
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 export async function getTtsUrl(text) {
-  try { return await fetchTts(text); } catch { return null; }
+  try {
+    return await fetchTts(text);
+  } catch {
+    // If ElevenLabs failed, fall back to edge-tts
+    if (ttsMode === "el") {
+      ttsMode = "edge";
+      try { return await fetchEdgeTts(text); } catch { /* both failed */ }
+    }
+    return null;
+  }
 }
 
 export async function speak(text, onEnd, onFallback) {
