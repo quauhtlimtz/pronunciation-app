@@ -7,16 +7,31 @@ import { StressLegend } from "./PhraseAnnotation";
 import { IconBack, IconRefresh, IconCheck, IconArrow, IconClose, IconMic } from "./Icons";
 import { Footer } from "./Footer";
 
-function MicBar({ deviceId, onChange, onStreamReady, visible }) {
+function MicBar({ deviceId, onChange, onStreamReady, visible, micStreamRef }) {
   const [devices, setDevices] = useState([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [enabled, setEnabled] = useState(false);
 
+  // Detect when stream has been invalidated so we show re-enable state
+  const [micLive, setMicLive] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      const track = micStreamRef?.current?.getAudioTracks()[0];
+      setMicLive(!!track && track.readyState === "live");
+    };
+    check();
+    const iv = setInterval(check, 500);
+    return () => clearInterval(iv);
+  }, [micStreamRef]);
+
   async function enableMic() {
     setLoading(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const constraints = deviceId
+        ? { audio: { deviceId: { exact: deviceId } } }
+        : { audio: true };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       const all = await navigator.mediaDevices.enumerateDevices();
       const mics = all.filter(d => d.kind === "audioinput");
       setDevices(mics);
@@ -46,17 +61,18 @@ function MicBar({ deviceId, onChange, onStreamReady, visible }) {
 
   const current = devices.find(d => d.deviceId === deviceId);
   const label = current?.label || (deviceId ? "Selected microphone" : "Default microphone");
+  const needsEnable = !enabled || !micLive;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] px-3 pointer-events-none">
-      {!enabled ? (
+      {needsEnable ? (
         <button
           className="btn btn-primary btn-sm gap-1.5 shadow-lg pointer-events-auto"
           onClick={enableMic}
           disabled={loading}
         >
           <IconMic size="sm" />
-          <span>{loading ? "enabling…" : "Enable Microphone"}</span>
+          <span>{loading ? "enabling…" : enabled ? "Re-enable Microphone" : "Enable Microphone"}</span>
         </button>
       ) : (
         <div className="relative pointer-events-auto">
@@ -386,6 +402,7 @@ export function LessonView({ def, onBack, completed, progress: lessonProgress, o
         visible={tab === "shadowing" && !loading && !!content}
         deviceId={micDeviceId}
         onChange={setMicDeviceId}
+        micStreamRef={micStreamRef}
         onStreamReady={(stream) => {
           if (micStreamRef.current && micStreamRef.current !== stream) {
             micStreamRef.current.getTracks().forEach(t => t.stop());

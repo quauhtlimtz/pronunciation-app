@@ -312,7 +312,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
               onClick={() => micReady && setStep("shadow")}
               disabled={!micReady}
             >
-              {micReady ? <>ready to shadow <IconArrow size="sm" /></> : "enable mic to shadow"}
+              {micReady ? <>ready to shadow <IconArrow size="sm" /></> : "mic off — tap below"}
             </button>
           </div>
         )}
@@ -328,7 +328,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
                 <p className={`text-sm ${rec ? "text-amber-700 dark:text-amber-500" : countdown ? "text-gray-400" : "text-gray-500"}`}>
                   {countdown ? "get ready…" : rec
                     ? <><span className="font-mono tabular-nums">{recDuration}s</span> · recording…</>
-                    : micReady ? "tap to record" : "enable mic first"}
+                    : micReady ? "tap to record" : "mic off — tap below"}
                 </p>
                 {!rec && !countdown && !recUrl && (
                   <button className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer bg-transparent border-none p-0" onClick={natPlay ? stopNat : playNat}>
