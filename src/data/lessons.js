@@ -6,7 +6,7 @@ export const LESSON_DEFS = [
     subtitle: "/tʃ/ /dʒ/ /ʃ/ /ʒ/ /θ/ /ð/ /ŋ/ — tricky for non-native speakers",
     session: "Feb 23, 2026",
     exerciseType: "classify",
-    exerciseQuestion: "What IPA symbol does this word use?",
+    exerciseQuestion: "Which tricky consonant sound does this word contain?",
     exerciseOptions: ["/tʃ/", "/dʒ/", "/ʃ/", "/ʒ/", "/θ/", "/ð/", "/ŋ/"],
     prompt: `You are an American English pronunciation expert teaching non-native speakers.
 Generate fresh practice content for these 7 tricky consonants that are challenging for many learners:
