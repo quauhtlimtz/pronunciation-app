@@ -236,7 +236,7 @@ export function LessonView({ def, onBack, completed, progress: lessonProgress, o
                             <div className="flex justify-between mb-2.5 items-start gap-2">
                               <div>
                                 <SpeakWord word={item.word} ipa={item.ipa} className="text-[1.1rem] inline-block mb-0.5">{item.word}</SpeakWord>
-                                <p className="mono-muted mt-1">{item.ipa} · {item.syllables}</p>
+                                {submitted && <p className="mono-muted mt-1">{item.ipa} · {item.syllables}</p>}
                               </div>
                               {submitted && (
                                 <span className={`font-mono text-sm shrink-0 flex items-center gap-0.5 ${ok ? "text-gray-500" : "text-amber-600"}`}>
