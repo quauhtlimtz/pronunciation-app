@@ -99,6 +99,38 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     };
   }, []);
 
+  // ─── Mic refresh (must be before playback functions that reference it) ───
+
+  const micReady = !!micStreamRef?.current &&
+    micStreamRef.current.getTracks().some(track => track.readyState === 'live');
+
+  const refreshMicStreamIfNeeded = useCallback(async () => {
+    if (!refreshMicAfterAudio.current) return;
+    refreshMicAfterAudio.current = false;
+
+    try {
+      let deviceId = null;
+      const currentStream = micStreamRef?.current;
+      if (currentStream && currentStream.getTracks().length > 0) {
+        const track = currentStream.getTracks()[0];
+        const settings = track.getSettings();
+        deviceId = settings.deviceId;
+        currentStream.getTracks().forEach(t => t.stop());
+      }
+
+      const constraints = {
+        audio: deviceId ? { deviceId: { exact: deviceId } } : true
+      };
+      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+      micStreamRef.current = newStream;
+    } catch (error) {
+      console.warn('Failed to refresh microphone stream:', error);
+      micStreamRef.current = null;
+    }
+  }, [micStreamRef]);
+
+  // ─── Audio playback ──────────────────────────────────────────────────
+
   const playNat  = () => { setNatPlay(true);  speak(phrase, () => setNatPlay(false)); };
   const stopNat  = () => { stopSpeak(); setNatPlay(false); };
   const stopMine = () => {
@@ -175,36 +207,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
   useEffect(() => { if (natAudioRef.current) natAudioRef.current.volume = natVol; }, [natVol]);
   useEffect(() => { if (audioRef.current) audioRef.current.volume = userVol; }, [userVol]);
 
-  // ─── Recording (same approach as test page) ────────────────────────────
-
-  const micReady = !!micStreamRef?.current &&
-    micStreamRef.current.getTracks().some(track => track.readyState === 'live');
-
-  // Function to refresh microphone stream after audio playback interference
-  const refreshMicStreamIfNeeded = useCallback(async () => {
-    if (!refreshMicAfterAudio.current) return;
-    refreshMicAfterAudio.current = false;
-
-    try {
-      let deviceId = null;
-      const currentStream = micStreamRef?.current;
-      if (currentStream && currentStream.getTracks().length > 0) {
-        const track = currentStream.getTracks()[0];
-        const settings = track.getSettings();
-        deviceId = settings.deviceId;
-        currentStream.getTracks().forEach(t => t.stop());
-      }
-
-      const constraints = {
-        audio: deviceId ? { deviceId: { exact: deviceId } } : true
-      };
-      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
-      micStreamRef.current = newStream;
-    } catch (error) {
-      console.warn('Failed to refresh microphone stream:', error);
-      micStreamRef.current = null;
-    }
-  }, [micStreamRef]);
+  // ─── Recording ─────────────────────────────────────────────────────────
 
   const startRec = useCallback(async () => {
     const stream = micStreamRef?.current;
