@@ -6,7 +6,7 @@ export const LESSON_DEFS = [
     subtitle: "/tʃ/ /dʒ/ /ʃ/ /ʒ/ /θ/ /ð/ /ŋ/ — tricky for non-native speakers",
     session: "Feb 23, 2026",
     exerciseType: "classify",
-    exerciseQuestion: "Which tricky consonant sound does this word contain?",
+    exerciseQuestion: "What sound do the highlighted letters make?",
     exerciseOptions: ["/tʃ/", "/dʒ/", "/ʃ/", "/ʒ/", "/θ/", "/ð/", "/ŋ/"],
     prompt: `You are an American English pronunciation expert teaching non-native speakers.
 Generate fresh practice content for these 7 tricky consonants that are challenging for many learners:
@@ -35,20 +35,20 @@ Respond ONLY with valid JSON (no markdown, no backticks):
     {"symbol": "/ŋ/",  "name": "NG sound",    "rule": "...", "tip": "...", "examples": [{...},{...},{...},{...}]}
   ],
   "exercises": [
-    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "/tʃ/"},
-    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "/dʒ/"},
-    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "/ʃ/"},
-    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "/ʒ/"},
-    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "/θ/"},
-    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "/ð/"},
-    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "/ŋ/"},
-    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "/tʃ/"},
-    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "/dʒ/"},
-    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "/ʃ/"},
-    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "/θ/"},
-    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "/ð/"},
-    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "/ŋ/"},
-    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "/ʒ/"}
+    {"word": "...", "highlight": "ch", "ipa": "/IPA/", "syllables": "...", "answer": "/tʃ/"},
+    {"word": "...", "highlight": "ge", "ipa": "/IPA/", "syllables": "...", "answer": "/dʒ/"},
+    {"word": "...", "highlight": "sh", "ipa": "/IPA/", "syllables": "...", "answer": "/ʃ/"},
+    {"word": "...", "highlight": "s", "ipa": "/IPA/", "syllables": "...", "answer": "/ʒ/"},
+    {"word": "...", "highlight": "th", "ipa": "/IPA/", "syllables": "...", "answer": "/θ/"},
+    {"word": "...", "highlight": "th", "ipa": "/IPA/", "syllables": "...", "answer": "/ð/"},
+    {"word": "...", "highlight": "ng", "ipa": "/IPA/", "syllables": "...", "answer": "/ŋ/"},
+    {"word": "...", "highlight": "tch", "ipa": "/IPA/", "syllables": "...", "answer": "/tʃ/"},
+    {"word": "...", "highlight": "j", "ipa": "/IPA/", "syllables": "...", "answer": "/dʒ/"},
+    {"word": "...", "highlight": "ti", "ipa": "/IPA/", "syllables": "...", "answer": "/ʃ/"},
+    {"word": "...", "highlight": "th", "ipa": "/IPA/", "syllables": "...", "answer": "/θ/"},
+    {"word": "...", "highlight": "th", "ipa": "/IPA/", "syllables": "...", "answer": "/ð/"},
+    {"word": "...", "highlight": "ng", "ipa": "/IPA/", "syllables": "...", "answer": "/ŋ/"},
+    {"word": "...", "highlight": "si", "ipa": "/IPA/", "syllables": "...", "answer": "/ʒ/"}
   ],
   "shadowing": [
     {"phrase":"...","ipa":"/IPA/","syllables":"...","note":"...","tokens":[{"t":"word","s":2,"lk":false},{"t":"word","s":0,"lk":true},{"t":"word","s":1,"lk":false}]},
@@ -58,6 +58,11 @@ Respond ONLY with valid JSON (no markdown, no backticks):
     {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]}
   ]
 }
+CRITICAL exercise "highlight" rules:
+- "highlight" = the exact letters in the word that produce the tricky consonant sound (case-insensitive match)
+- Must be a substring of the word. E.g. word "church" highlight "ch", word "page" highlight "ge", word "vision" highlight "si"
+- Use varied words where the same sound is spelled differently (e.g. /ʃ/: "sh" in "shape", "ti" in "nation", "ci" in "ocean")
+
 CRITICAL token rules — follow these EXACTLY:
 - "t" = the word text
 - "s" = sentence-level stress: 2 = primary (content words that carry the main emphasis, e.g. nouns, main verbs, adjectives), 1 = secondary (other content words with some stress), 0 = unstressed (function words: a, the, to, is, in, of, etc.)

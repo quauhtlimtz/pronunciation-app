@@ -8,6 +8,52 @@ import { IconBack, IconRefresh, IconCheck, IconArrow, IconClose } from "./Icons"
 import { Footer } from "./Footer";
 import { MicBar } from "./MicBar";
 
+// Letter patterns that produce each IPA sound, ordered longest-first for greedy match
+const SOUND_PATTERNS = {
+  "/tʃ/": ["tch", "ch", "tu"],
+  "/dʒ/": ["dge", "dg", "ge", "gi", "gy", "j"],
+  "/ʃ/":  ["shi", "sh", "ti", "ci", "ssi", "ss", "si", "ch"],
+  "/ʒ/":  ["si", "su", "ge", "s"],
+  "/θ/":  ["th"],
+  "/ð/":  ["th"],
+  "/ŋ/":  ["ng", "n"],
+};
+
+function inferHighlight(word, answer) {
+  const patterns = SOUND_PATTERNS[answer];
+  if (!patterns) return null;
+  const lower = word.toLowerCase();
+  for (const p of patterns) {
+    const idx = lower.indexOf(p);
+    if (idx !== -1) return { idx, len: p.length };
+  }
+  return null;
+}
+
+function highlightWord(word, letters) {
+  const idx = word.toLowerCase().indexOf(letters.toLowerCase());
+  if (idx === -1) return word;
+  return (
+    <>
+      {word.slice(0, idx)}
+      <span className="font-bold underline decoration-2 underline-offset-4 decoration-amber-500">{word.slice(idx, idx + letters.length)}</span>
+      {word.slice(idx + letters.length)}
+    </>
+  );
+}
+
+function highlightBySound(word, answer) {
+  const match = inferHighlight(word, answer);
+  if (!match) return word;
+  return (
+    <>
+      {word.slice(0, match.idx)}
+      <span className="font-bold underline decoration-2 underline-offset-4 decoration-amber-500">{word.slice(match.idx, match.idx + match.len)}</span>
+      {word.slice(match.idx + match.len)}
+    </>
+  );
+}
+
 function ConfirmDialog({ onConfirm, onCancel }) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={onCancel}>
@@ -235,7 +281,11 @@ export function LessonView({ def, onBack, completed, progress: lessonProgress, o
                           <>
                             <div className="flex justify-between mb-2.5 items-start gap-2">
                               <div>
-                                <SpeakWord word={item.word} ipa={submitted ? item.ipa : undefined} className="text-[1.1rem] inline-block mb-0.5">{item.word}</SpeakWord>
+                                <SpeakWord word={item.word} ipa={submitted ? item.ipa : undefined} className="text-[1.1rem] inline-block mb-0.5">
+                                  {item.highlight
+                                    ? highlightWord(item.word, item.highlight)
+                                    : item.answer ? highlightBySound(item.word, item.answer) : item.word}
+                                </SpeakWord>
                                 {submitted && <p className="mono-muted mt-1">{item.ipa} · {item.syllables}</p>}
                               </div>
                               {submitted && (
