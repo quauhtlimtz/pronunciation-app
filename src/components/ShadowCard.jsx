@@ -6,8 +6,7 @@ import { PhraseAnnotation } from "./PhraseAnnotation";
 import { PitchOverlay } from "./PitchOverlay";
 import { IconPlay, IconPause, IconStop, IconMic, IconCheck, IconArrow, IconRefresh } from "./Icons";
 import { motion } from "motion/react";
-import { preloadFFmpeg } from "../services/audioTrim";
-import { useRecorder } from "../hooks/useRecorder";
+import { trimSilence, preloadFFmpeg } from "../services/audioTrim";
 
 const SPEC_OPTIONS = {
   labels: false,
@@ -59,9 +58,14 @@ const STEPS = ["listen", "shadow", "compare"];
 export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef, savedDone, onRecordingChange }) {
   const [step, setStep]         = useState("listen");
   const [natPlay, setNatPlay]   = useState(false);
+  const [rec, setRec]           = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const [recUrl, setRecUrl]     = useState(null);
+  const [recDuration, setRecDuration] = useState(0);
   const [myPlay, setMyPlay]     = useState(false);
+  const [recError, setRecError] = useState(null);
   const [natUrl, setNatUrl]     = useState(null);
-  const [natError, setNatError] = useState(false);
+  const audioRef   = useRef(null);
   const natAudioRef = useRef(null);
   const [bothPlay, setBothPlay] = useState(false);
   const [natVol, setNatVol]     = useState(1);
@@ -72,24 +76,14 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
   const recTimerRef = useRef(null);
   const refreshMicAfterAudio = useRef(false);
 
-  const {
-    rec, countdown, recUrl, recDuration, recError, recReady, audioRef,
-    startRec, stopRec, clearRec, cleanup, setRecReady,
-  } = useRecorder();
-
-  const fetchNative = useCallback(() => {
-    setNatError(false);
-    getTtsUrl(phrase).then(url => {
-      if (url) setNatUrl(url);
-      else setNatError(true);
-    }).catch(() => setNatError(true));
-  }, [phrase]);
-
-  // Preload ffmpeg + native TTS when entering shadow step
+  // Preload ffmpeg when entering shadow step
   useEffect(() => {
-    if (step === "shadow" || step === "compare") {
-      preloadFFmpeg().catch(() => {});
-      if (!natUrl) fetchNative();
+    if (step === "shadow") preloadFFmpeg();
+  }, [step]);
+
+  useEffect(() => {
+    if (step === "compare") {
+      getTtsUrl(phrase).then(url => url && setNatUrl(url));
     }
   }, [step, phrase]);
 
@@ -97,16 +91,19 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     onRecordingChange?.(!!recUrl);
   }, [recUrl]);
 
-  useEffect(() => cleanup, []);
-
-  // ─── Audio playback ──────────────────────────────────────────────────
+  // Cleanup on unmount (stream is owned by LessonView, don't stop it here)
+  useEffect(() => {
+    return () => {
+      clearInterval(recTimerRef.current);
+      if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
+    };
+  }, []);
 
   const playNat  = () => { setNatPlay(true);  speak(phrase, () => setNatPlay(false)); };
   const stopNat  = () => { stopSpeak(); setNatPlay(false); };
-  const stopMine = () => { 
-    audioRef.current?.pause(); 
+  const stopMine = () => {
+    audioRef.current?.pause();
     setMyPlay(false);
-    // Refresh mic if audio was playing (Safari mobile fix)
     if (refreshMicAfterAudio.current) {
       setTimeout(() => refreshMicStreamIfNeeded(), 100);
     }
@@ -118,13 +115,11 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     a.currentTime = 0;
     a.volume = natVol;
     setNatPlay(true);
-    
-    // Mark that we need to refresh mic after audio playback (Safari mobile issue)
+
     refreshMicAfterAudio.current = true;
-    
+
     a.onended = () => {
       setNatPlay(false);
-      // Refresh microphone stream after audio playback ends (Safari mobile fix)
       setTimeout(() => refreshMicStreamIfNeeded(), 100);
     };
     a.play();
@@ -132,7 +127,6 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
   const stopNatAudio = useCallback(() => {
     natAudioRef.current?.pause();
     setNatPlay(false);
-    // Refresh mic if audio was playing (Safari mobile fix)
     if (refreshMicAfterAudio.current) {
       setTimeout(() => refreshMicStreamIfNeeded(), 100);
     }
@@ -144,7 +138,6 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     setBothPlay(false);
     setNatPlay(false);
     setMyPlay(false);
-    // Refresh mic if audio was playing (Safari mobile fix)
     if (refreshMicAfterAudio.current) {
       setTimeout(() => refreshMicStreamIfNeeded(), 100);
     }
@@ -162,15 +155,13 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     setNatPlay(true);
     setMyPlay(true);
 
-    // Mark that we need to refresh mic after audio playback (Safari mobile issue)
     refreshMicAfterAudio.current = true;
 
     let ended = 0;
-    const onEnd = () => { 
-      ended++; 
+    const onEnd = () => {
+      ended++;
       if (ended >= 2) {
         stopBoth();
-        // Refresh microphone stream after audio playback ends (Safari mobile fix)
         setTimeout(() => refreshMicStreamIfNeeded(), 100);
       }
     };
@@ -186,35 +177,31 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
 
   // ─── Recording (same approach as test page) ────────────────────────────
 
-  const micReady = !!micStreamRef?.current && 
+  const micReady = !!micStreamRef?.current &&
     micStreamRef.current.getTracks().some(track => track.readyState === 'live');
 
   // Function to refresh microphone stream after audio playback interference
   const refreshMicStreamIfNeeded = useCallback(async () => {
     if (!refreshMicAfterAudio.current) return;
     refreshMicAfterAudio.current = false;
-    
+
     try {
-      // Get current device if possible
       let deviceId = null;
       const currentStream = micStreamRef?.current;
       if (currentStream && currentStream.getTracks().length > 0) {
         const track = currentStream.getTracks()[0];
         const settings = track.getSettings();
         deviceId = settings.deviceId;
-        // Clean up old stream
         currentStream.getTracks().forEach(t => t.stop());
       }
 
-      // Request fresh microphone stream with same device
-      const constraints = { 
-        audio: deviceId ? { deviceId: { exact: deviceId } } : true 
+      const constraints = {
+        audio: deviceId ? { deviceId: { exact: deviceId } } : true
       };
       const newStream = await navigator.mediaDevices.getUserMedia(constraints);
       micStreamRef.current = newStream;
     } catch (error) {
       console.warn('Failed to refresh microphone stream:', error);
-      // Clear the stream reference so user knows to re-enable
       micStreamRef.current = null;
     }
   }, [micStreamRef]);
@@ -226,11 +213,9 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
       return;
     }
 
-    // Check if stream tracks are actually live (Safari mobile issue after audio playback)
     const liveTracks = stream.getTracks().filter(track => track.readyState === 'live');
     if (liveTracks.length === 0) {
       setRecError("Microphone connection lost. Try clicking the mic selector.");
-      // Try to refresh the stream automatically
       await refreshMicStreamIfNeeded();
       return;
     }
@@ -239,7 +224,6 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     setRecDuration(0);
     setRecReady(false);
 
-    // Create MediaRecorder from the already-open stream
     const recorder = new MediaRecorder(stream);
     mediaRecorderRef.current = recorder;
     chunksRef.current = [];
@@ -277,7 +261,6 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     setCountdown(0);
     setRec(true);
 
-    // Duration timer (from when user starts speaking)
     const t0 = Date.now();
     recTimerRef.current = setInterval(() => {
       setRecDuration(Math.round((Date.now() - t0) / 1000));
@@ -295,38 +278,21 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
     const a = audioRef.current;
     a.currentTime = 0;
     setMyPlay(true);
-    
-    // Mark that we need to refresh mic after audio playback (Safari mobile issue)
+
     refreshMicAfterAudio.current = true;
-    
+
     a.onended = () => {
       setMyPlay(false);
-      // Refresh microphone stream after audio playback ends (Safari mobile fix)
       setTimeout(() => refreshMicStreamIfNeeded(), 100);
     };
     a.play();
   }
 
-  // ─── Helpers ─────────────────────────────────────────────────────────
-
-  const micReady = !!micStreamRef?.current;
-
-  const handleStartRec = () => {
-    startRec(() => {
-      // Stop all audio before recording
-      if (audioRef.current) { audioRef.current.pause(); audioRef.current.removeAttribute("src"); audioRef.current.load(); }
-      if (natAudioRef.current) natAudioRef.current.pause();
-      stopSpeak();
-      setMyPlay(false);
-      setNatPlay(false);
-      setBothPlay(false);
-    }).catch(e => console.error("startRec:", e));
-  };
-
   function reset() {
-    setStep("listen"); clearRec(); setNatUrl(null); setNatPlay(false); setMyPlay(false);
-    setBothPlay(false); setNatError(false);
+    setStep("listen"); setRecUrl(null); setNatUrl(null); setRec(false); setNatPlay(false); setMyPlay(false);
+    setBothPlay(false); setRecDuration(0); setRecError(null); setRecReady(false);
     stopSpeak(); natAudioRef.current?.pause(); audioRef.current?.pause();
+    if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
   }
 
   const si = STEPS.indexOf(step);
@@ -373,7 +339,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
               onClick={() => micReady && setStep("shadow")}
               disabled={!micReady}
             >
-              {micReady ? <>ready to shadow <IconArrow size="sm" /></> : "mic off — tap below"}
+              {micReady ? <>ready to shadow <IconArrow size="sm" /></> : "enable mic to shadow"}
             </button>
           </div>
         )}
@@ -381,15 +347,15 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
         {step === "shadow" && (
           <div className="flex flex-col items-center justify-center gap-2.5" style={{ minHeight: 140 }}>
             <div className="flex items-center gap-2">
-              <button className={`circ circ-sm ${rec ? "circ-rec" : ""} ${countdown ? "opacity-50 pointer-events-none" : ""}`}
-                onClick={rec ? stopRec : handleStartRec} disabled={!!countdown}>
+              <button className={`circ circ-sm ${rec ? "circ-rec" : ""} ${countdown || !micReady ? "opacity-50 pointer-events-none" : ""}`}
+                onClick={rec ? stopRec : startRec} disabled={!!countdown || (!rec && !micReady)}>
                 {countdown ? <span className="text-lg font-mono font-bold">{countdown}</span> : rec ? <IconStop size="md" /> : <IconMic size="md" />}
               </button>
               <div className="text-left">
                 <p className={`text-sm ${rec ? "text-amber-700 dark:text-amber-500" : countdown ? "text-gray-400" : "text-gray-500"}`}>
                   {countdown ? "get ready…" : rec
                     ? <><span className="font-mono tabular-nums">{recDuration}s</span> · recording…</>
-                    : "tap to record"}
+                    : micReady ? "tap to record" : "enable mic first"}
                 </p>
                 {!rec && !countdown && !recUrl && (
                   <button className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer bg-transparent border-none p-0" onClick={natPlay ? stopNat : playNat}>
@@ -401,13 +367,14 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
 
             {recError && <p className="text-sm text-amber-700 dark:text-amber-500 text-center">{recError}</p>}
             {recUrl && !rec && (
-              <div className="flex flex-col gap-2 w-full">
-                <button className="btn btn-default gap-1 w-full" onClick={myPlay ? stopMine : playMine} disabled={!recReady}>
-                  {myPlay ? <><IconPause size="sm" /> stop</> : recReady ? <><IconPlay size="sm" /> preview · {recDuration}s</> : <><IconPlay size="sm" /> loading…</>}
-                </button>
-                <button className="btn btn-primary gap-1 w-full" onClick={() => setStep("compare")}>
+              <div className="flex items-center gap-2 w-full">
+                <button className="btn btn-primary flex-1 gap-1" onClick={() => setStep("compare")}>
                   compare <IconArrow size="sm" />
                 </button>
+                <button className="btn btn-default btn-sm gap-1" onClick={playMine} disabled={!recReady}>
+                  <IconPlay size="sm" /> {myPlay ? "playing…" : recReady ? "preview" : "loading…"}
+                </button>
+                <span className="text-xs text-gray-400 font-mono shrink-0">{recDuration}s</span>
               </div>
             )}
           </div>
@@ -428,8 +395,8 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
               className="flex flex-col gap-2.5"
             >
               <div className="grid grid-cols-2 gap-2.5">
-                <button className="btn btn-default gap-1 w-full" onClick={!natUrl ? fetchNative : natPlay ? stopNatAudio : playNatAudio} disabled={!natUrl && !natError}>
-                  {natError ? <><IconRefresh size="sm" /> retry native</> : !natUrl ? "loading native…" : natPlay ? <><IconPause size="sm" /> native</> : <><IconPlay size="sm" /> native</>}
+                <button className="btn btn-default gap-1 w-full" onClick={natPlay ? stopNatAudio : playNatAudio}>
+                  {natPlay ? <><IconPause size="sm" /> native</> : <><IconPlay size="sm" /> native</>}
                 </button>
                 <button className="btn btn-default gap-1 w-full" onClick={myPlay ? stopMine : playMine}>
                   {myPlay ? <><IconPause size="sm" /> yours</> : <><IconPlay size="sm" /> yours</>}
@@ -475,11 +442,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
             >
               <div className="card p-3">
                 <p className="mono-label mb-2 text-center">native</p>
-                {natUrl ? <MiniSpectrogram audioUrl={natUrl} /> : (
-                  <div className="flex items-center justify-center text-xs text-gray-400" style={{ minHeight: 220 }}>
-                    {natError ? <button className="btn btn-default btn-sm gap-1" onClick={fetchNative}><IconRefresh size="sm" /> retry</button> : "loading…"}
-                  </div>
-                )}
+                <MiniSpectrogram audioUrl={natUrl} />
               </div>
               <div className="card p-3">
                 <p className="mono-label mb-2 text-center">you</p>
@@ -501,7 +464,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
               transition={{ duration: 0.3, delay: 0.55 }}
               className="flex gap-2 flex-wrap"
             >
-              <button className="btn btn-default gap-1" onClick={() => { stopBoth(); clearRec(); setNatUrl(null); setNatError(false); setStep("shadow"); }}><IconRefresh size="sm" /> Re-record</button>
+              <button className="btn btn-default gap-1" onClick={() => { stopBoth(); setRecUrl(null); setNatUrl(null); setRecDuration(0); setRecError(null); setRecReady(false); setStep("shadow"); }}><IconRefresh size="sm" /> Re-record</button>
               <button className="btn btn-ghost" onClick={reset}>Start over</button>
             </motion.div>
           </div>
