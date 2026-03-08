@@ -1,162 +1,124 @@
-# Pronunciation Practice Lab
+# Pronunciation App
 
-A React-based American English pronunciation training app built for ACC's Advanced American Pronunciation course. Designed for non-native speakers from any language background.
+A web app for practicing American English pronunciation, designed for non-native speakers from any language background. Built as a companion tool for an advanced pronunciation course.
 
----
+**Live at [pronun.space](https://pronun.space)**
 
-## Features
+## What it does
 
-### Lessons
-Each lesson covers a specific phonetic topic with three tabs:
+Structured pronunciation lessons organized by topic (vowel sounds, consonant clusters, stress patterns, linking, etc.). Each lesson has three sections:
 
-- **Theory** — expandable cards per sound/rule. Tap any word to hear it pronounced.
-- **Practice** — AI-generated exercises (classify sounds or pick the correct linked form). Tap any word or phrase to hear it. Randomized on every new generation.
-- **Shadowing** — listen to a native speaker, record yourself, compare side by side.
+- **Theory** — Rules, IPA symbols, articulation tips, and example words with phonetic transcriptions. Tap any word to hear it.
+- **Practice** — Interactive exercises: classify what sound highlighted letters make, or pick the correct linked version of a phrase.
+- **Shadowing** — Listen to a phrase, record yourself repeating it, then compare side-by-side with waveform and pitch contour visualization. Stress and linking annotations show rhythm patterns.
 
-**Current lessons (6 total):**
+### Other tools
 
-| Session | Lesson | Type |
-|---------|--------|------|
-| Feb 23, 2026 | Tricky Consonants `/tʃ/ /dʒ/ /ʃ/ /ʒ/ /θ/ /ð/ /ŋ/` | Classify |
-| Feb 23, 2026 | Aspiration `/pʰ tʰ kʰ/` | Classify |
-| Mar 4, 2026 | American /t/ (4 variants) | Classify |
-| Mar 4, 2026 | Light & Dark L | Classify |
-| Mar 4, 2026 | -S Endings `/s/ /z/ /əz/` | Classify |
-| Mar 4, 2026 | Linking | Rewrite |
+- **Mouth Anatomy Diagram** — Interactive SVG showing articulation points (tongue, palate, teeth, etc.) for reference while learning sounds.
+- **Free Shadowing** — Practice shadowing with any custom phrase outside of lessons.
 
----
+## AI-generated content
 
-## AI Content Generation
+Lesson content (theory, exercises, shadowing phrases) is generated dynamically by Claude via the Anthropic API using structured prompts. Each generation produces fresh material with accurate IPA transcriptions.
 
-All lesson content (theory, exercises, shadowing phrases) is **generated dynamically by Claude** (`claude-sonnet-4-6`) via the Anthropic API. Each lesson produces:
+Content is cached locally and shared across users via a Supabase content pool, so not every visit requires an API call. Users can explicitly request fresh content when they want new practice material.
 
-- Theory cards with IPA, articulation rules, and practical tips
-- Exercises with accurate IPA transcriptions
-- Shadowing phrases with stress and linking annotations
+## Text-to-speech
 
-### Caching (token efficiency)
-Content is cached in `localStorage` with key prefix `pron_v2_<lessonId>`. On lesson open, cached content loads instantly — **no API call is made**. The `↻ new` button explicitly clears the cache and forces a fresh generation. A `CACHED` label appears in the header when cached content is being shown.
+Two-tier TTS with automatic fallback:
 
----
+1. **ElevenLabs** — High-quality neural voice (primary)
+2. **Browser SpeechSynthesis** — Zero-config fallback when ElevenLabs quota is exhausted. Prioritizes Microsoft Neural voices (Edge), then Apple Neural voices (Safari), then any available `en-US` voice.
 
-## Text-to-Speech (TTS)
+## Shadowing visualization
 
-Two-tier system with automatic fallback:
-
-### Primary — ElevenLabs
-- Voice: **Rachel** (`21m00Tcm4TlvDq8ikWAM`), natural American English female
-- Model: `eleven_turbo_v2`
-- Settings: stability 0.4, similarity boost 0.75, style 0.3
-- Free tier: 10,000 characters/month
-- Once quota is hit, switches to fallback automatically — no user action needed
-
-### Fallback — Web Speech API (browser-native)
-Zero config, zero limits, zero account. Voice priority:
-
-1. **Microsoft Neural voices** (Edge on Windows) — Jenny, Aria, Guy, etc. Same engine as edge-tts
-2. **Microsoft standard** — Zira, David
-3. **Apple Neural** — Samantha, Karen (Mac / iPhone / iPad)
-4. Any available `en-US` voice
-
-When the fallback is active, a note appears on each shadowing card showing the exact voice name being used (e.g., `⚠ browser TTS active · Microsoft Jenny Online (Natural)`).
-
-> **Tip for best fallback quality:** Use Microsoft Edge. The neural voices injected by Edge are indistinguishable from edge-tts quality.
-
----
-
-## Shadowing — Stress & Rhythm Visualization
-
-Each shadowing phrase is annotated by the AI with per-word stress and linking data:
+Each shadowing phrase includes per-word stress and linking annotations:
 
 | Visual | Meaning |
 |--------|---------|
-| Larger + bold + filled dot `●` | Primary stress |
-| Medium + hollow dot `○` | Secondary stress |
+| Large + bold + filled dot | Primary stress |
+| Medium + hollow dot | Secondary stress |
 | Small + dimmed | Unstressed / reduced |
-| Underline bridge between words | Phonetic linking (consonant → vowel) |
+| Underline bridge between words | Phonetic linking |
 
-A legend is shown at the top of the Shadowing tab.
+Pitch contour overlays let you visually compare your intonation against the target.
 
----
-
-## Tap to Hear
-
-Words and phrases are tappable anywhere they appear:
-
-- **Theory** — tap any word in example cards
-- **Practice** — tap the word (classify) or phrase (rewrite) before answering
-- **Shadowing** — tap to play the full phrase (the main play button)
-
-Visual indicator: dashed underline on tappable words. A small `▶` appears while playing. Tap again to stop.
-
----
-
-## Dark / Light Mode
-
-The app respects the system preference (`prefers-color-scheme`) by default. A toggle button (top-right corner) overrides it manually:
-
-- `◉` — follows system
-- `🌙` — force dark
-- `☀️` — force light
-
----
-
-## Design
-
-- **Mobile-first** — all touch targets `min-height: 44px`, safe area insets for notched phones
-- **Minimalist** — pure black/white, no color fills, system font, `border-radius: 3-4px`
-- **Fully responsive** — works on mobile, tablet, and desktop
-- No external UI libraries, no Google Fonts
-
----
-
-## Tech Stack
+## Tech stack
 
 | Layer | Technology |
 |-------|-----------|
-| UI | React (hooks only) |
-| Styling | CSS variables + inline styles, no Tailwind |
-| AI content | Anthropic API (`claude-sonnet-4-6`) |
-| TTS primary | ElevenLabs REST API |
-| TTS fallback | Web Speech API (`window.speechSynthesis`) |
-| Recording | MediaRecorder API |
-| Storage | `localStorage` (content cache) |
-| Fonts | System UI stack |
+| Frontend | React, Tailwind CSS, Motion |
+| Build | Vite |
+| AI | Anthropic API (Claude) |
+| TTS | ElevenLabs, browser SpeechSynthesis fallback |
+| Audio | WaveSurfer.js, FFmpeg WASM, Pitchfinder |
+| Backend | Supabase (auth, content pool, progress tracking) |
+| Hosting | Vercel |
 
----
+## Project structure
 
-## Running
+```
+src/
+  App.jsx                      — Home screen + lesson routing
+  data/lessons.js              — Lesson definitions (configs + AI prompts)
+  services/
+    api.js                     — Anthropic API client
+    tts.js                     — Text-to-speech service
+    cache.js                   — localStorage cache
+    content.js                 — Content pool (Supabase)
+  components/
+    LessonView.jsx             — Lesson page (theory/practice/shadowing tabs)
+    TheoryCard.jsx             — Collapsible theory section
+    ShadowCard.jsx             — 3-step shadowing (listen/shadow/compare)
+    PhraseAnnotation.jsx       — Stress + linking visual annotations
+    PitchOverlay.jsx           — Pitch contour visualization
+    SpeakWord.jsx              — Tap-to-hear word wrapper
+    WordBadge.jsx              — Expandable word card (word + IPA + syllables)
+    AnatomyDiagram.jsx         — Interactive mouth anatomy diagram
+    FreeShadow.jsx             — Free-form shadowing practice
+    MicBar.jsx                 — Microphone level indicator
+    ThemeToggle.jsx            — Dark/light/system theme toggle
+    AuthContext.jsx            — Google OAuth + progress state
+    AdminPanel.jsx             — Content pool management
+    ErrorBoundary.jsx          — React error boundary
+```
 
-This is a single-file React artifact (`.jsx`). Load it in any environment that supports React + JSX — Claude.ai artifacts, CodeSandbox, or a local Vite/CRA project.
+## Setup
 
-No build step, no `npm install`, no dependencies beyond React itself.
+```bash
+npm install
+npm run dev
+```
 
----
+### Environment variables
 
-## Adding New Lessons
+| Variable | Description |
+|----------|-------------|
+| `VITE_ANTHROPIC_API_KEY` | Anthropic API key |
+| `VITE_ELEVENLABS_API_KEY` | ElevenLabs API key |
+| `VITE_SUPABASE_URL` | Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anonymous key |
+| `VITE_GOOGLE_CLIENT_ID` | Google OAuth client ID |
 
-Add an entry to the `LESSON_DEFS` array with:
+## Adding lessons
+
+Add an entry to the `LESSON_DEFS` array in `src/data/lessons.js`:
 
 ```js
 {
   id: "unique-id",
   title: "Lesson Title",
   subtitle: "short description",
-  icon: "emoji",
-  color: "#hexcolor",           // accent color (used sparingly)
-  session: "Month DD, YYYY",    // groups lessons on home screen
-  exerciseType: "classify",     // or "rewrite"
+  session: "Month DD, YYYY",
+  exerciseType: "classify",        // or "rewrite"
   exerciseQuestion: "...",
-  exerciseOptions: ["opt1", "opt2", "opt3"],  // null for rewrite
-  prompt: `...`                 // full AI prompt — see existing lessons for format
+  exerciseOptions: ["opt1", "opt2"],  // null for rewrite type
+  prompt: `...`                    // AI prompt returning { theory, exercises, shadowing }
 }
 ```
 
-The prompt must instruct the AI to return JSON with `theory`, `exercises`, and `shadowing` keys. Shadowing items must include a `tokens` array for the stress visualization to work.
+The prompt must instruct Claude to return JSON with `theory`, `exercises`, and `shadowing` keys. Shadowing items must include a `tokens` array with stress (`s`: 0/1/2) and linking (`lk`: boolean) data for the visualization to work.
 
----
+## License
 
-## Credits
-
-Developed by [Quauhtli Martínez](https://www.linkedin.com/in/quauhtlimtz) · 2026  
-☕ Powered by a lot of coffee
+ISC
