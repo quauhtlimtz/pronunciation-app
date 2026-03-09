@@ -85,18 +85,32 @@ export function FreeShadow({ onBack, darkToggle }) {
 
   // Load daily usage + first page of pool
   useEffect(() => {
-    if (!user) return;
-    getGenerationsToday(user.id).then(setUsedToday).catch(e => console.error("getGenerationsToday:", e));
+    if (user) {
+      getGenerationsToday(user.id).then(setUsedToday).catch(e => console.error("getGenerationsToday:", e));
+    }
     loadPool(0);
   }, [user]);
 
   async function loadPool(p) {
-    if (!user) return;
     setLoadingPool(true);
     try {
-      const { items, hasMore: more } = await fetchPhrasePool(user.id, p);
-      setPool(prev => p === 0 ? items : [...prev, ...items]);
-      setHasMore(more);
+      if (user) {
+        const { items, hasMore: more } = await fetchPhrasePool(user.id, p);
+        setPool(prev => p === 0 ? items : [...prev, ...items]);
+        setHasMore(more);
+      } else {
+        const { supabase } = await import("../services/supabase");
+        const from = p * 20;
+        const to = from + 19;
+        const { data } = await supabase
+          .from("free_shadow_content")
+          .select("*", { count: "exact" })
+          .eq("private", false)
+          .order("created_at", { ascending: false })
+          .range(from, to);
+        setPool(prev => p === 0 ? (data || []) : [...prev, ...(data || [])]);
+        setHasMore((data?.length || 0) === 20);
+      }
       setPage(p);
     } catch (e) {
       console.error("loadPool:", e);
@@ -128,32 +142,6 @@ export function FreeShadow({ onBack, darkToggle }) {
       setGenerating(false);
     }
   };
-
-  // Load public pool for non-logged-in users too
-  useEffect(() => {
-    if (user) return; // handled by the other useEffect
-    loadPoolPublic(0);
-  }, [user]);
-
-  async function loadPoolPublic(p) {
-    setLoadingPool(true);
-    try {
-      const { supabase } = await import("../services/supabase");
-      const from = p * 20;
-      const to = from + 19;
-      const { data, count } = await supabase
-        .from("free_shadow_content")
-        .select("*", { count: "exact" })
-        .eq("private", false)
-        .order("created_at", { ascending: false })
-        .range(from, to);
-      setPool(prev => p === 0 ? (data || []) : [...prev, ...(data || [])]);
-      setHasMore((data?.length || 0) === 20);
-      setPage(p);
-    } catch (e) {
-      console.error("loadPoolPublic:", e);
-    } finally { setLoadingPool(false); }
-  }
 
   return (
     <div className="min-h-dvh bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 flex flex-col">
@@ -278,7 +266,7 @@ export function FreeShadow({ onBack, darkToggle }) {
             {hasMore && (
               <button
                 className="btn btn-default btn-sm w-full mt-2"
-                onClick={() => user ? loadPool(page + 1) : loadPoolPublic(page + 1)}
+                onClick={() => loadPool(page + 1)}
                 disabled={loadingPool}
               >
                 {loadingPool ? "Loading…" : "Load more"}
