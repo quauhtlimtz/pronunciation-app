@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { speak, stopSpeak } from "../services/tts";
 import { SpeakWord } from "./SpeakWord";
-import { IconBack, IconPlay } from "./Icons";
+import { IconBack } from "./Icons";
 import { getContent } from "../services/content";
 import { useAuth } from "./AuthContext";
 

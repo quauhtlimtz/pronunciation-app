@@ -83,10 +83,11 @@ export function PhraseAnnotation({ tokens }) {
               >
                 {stressDot[tok.s]}
                 {tok.t}
-                {selected && isRangeEnd && playing && <span className="ml-0.5 opacity-60"><IconPlay size="sm" /></span>}
               </span>
               {linked && (
-                <span className="inline-block w-3 border-b-2 border-amber-600 dark:border-amber-400 self-end mb-[0.15em] -mx-0.5" />
+                <svg className="inline-block self-end -mx-1 mb-[0.1em]" width="16" height="8" viewBox="0 0 16 8">
+                  <path d="M1,1 Q8,9 15,1" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber-600 dark:text-amber-400" />
+                </svg>
               )}
             </span>
           );
@@ -127,7 +128,9 @@ export function StressLegend() {
         <span className="font-mono text-sm text-gray-400 dark:text-gray-500">unstressed</span>
       </div>
       <div className="flex items-center gap-1.5">
-        <span className="inline-block w-5 border-b-2 border-amber-600 dark:border-amber-400 align-middle" />
+        <svg className="inline-block align-middle" width="20" height="8" viewBox="0 0 20 8">
+          <path d="M1,1 Q10,9 19,1" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber-600 dark:text-amber-400" />
+        </svg>
         <span className="font-mono text-sm text-gray-400 dark:text-gray-400">linked</span>
       </div>
     </div>
