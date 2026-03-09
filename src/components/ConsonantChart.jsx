@@ -110,21 +110,21 @@ Respond ONLY with valid JSON (no markdown, no backticks):
 Use common everyday American English words. All IPA must be accurate.`,
 };
 
-// TTS-friendly approximations for isolated consonant sounds
-// Stops get a minimal schwa, fricatives/nasals get sustained, glides get a short vowel
+// TTS-friendly short words/syllables that isolate each consonant sound
+// Uses real words or natural syllables that TTS engines handle well
 const SOUND_TTS = {
-  "/p/": "puh",   "/b/": "buh",
-  "/t/": "tuh",   "/d/": "duh",
-  "/k/": "kuh",   "/g/": "guh",
-  "/f/": "ffff",   "/v/": "vvvv",
-  "/θ/": "thhh",  "/ð/": "thhh",
-  "/s/": "ssss",   "/z/": "zzzz",
-  "/ʃ/": "shhh",  "/ʒ/": "zhuh",
-  "/h/": "hhhh",
-  "/tʃ/": "chuh", "/dʒ/": "juh",
-  "/m/": "mmmm",  "/n/": "nnnn",  "/ŋ/": "nggg",
-  "/l/": "llll",   "/r/": "rrrr",
-  "/w/": "wuh",   "/j/": "yuh",
+  "/p/": "puh",    "/b/": "buh",
+  "/t/": "tuh",    "/d/": "duh",
+  "/k/": "kuh",    "/g/": "guh, guh",
+  "/f/": "fah",    "/v/": "vah",
+  "/θ/": "thah",   "/ð/": "thuh",
+  "/s/": "sah",    "/z/": "zah",
+  "/ʃ/": "shah",   "/ʒ/": "zhah",
+  "/h/": "hah",
+  "/tʃ/": "chuh",  "/dʒ/": "juh",
+  "/m/": "mmm",    "/n/": "nnn",   "/ŋ/": "sing, ng",
+  "/l/": "lah",    "/r/": "rah",
+  "/w/": "wah",    "/j/": "yah",
 };
 
 function SoundCell({ sound, onSelect, selected }) {
