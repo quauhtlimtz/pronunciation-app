@@ -197,14 +197,18 @@ export function ConsonantChart({ onBack, darkToggle }) {
             </tr>
           </thead>
           <tbody>
-            {CHART.map((row) => {
-              // Check if selected sound is in this row
-              const selectedInRow = selected && row.cells.some(c =>
-                c.voiceless?.ipa === selected || c.voiced?.ipa === selected
-              );
-              const selectedExamples = selected && examples?.[selected];
+            {CHART.flatMap((row) => {
+              // Find if selected sound is in this row, and get its static data
+              let selectedSound = null;
+              if (selected) {
+                for (const c of row.cells) {
+                  if (c.voiceless?.ipa === selected) { selectedSound = c.voiceless; break; }
+                  if (c.voiced?.ipa === selected) { selectedSound = c.voiced; break; }
+                }
+              }
+              const dynamicExamples = selected && examples?.[selected];
 
-              return [
+              const rows = [
                 <tr key={row.manner} className="border-t border-gray-200 dark:border-gray-700">
                   <td className="text-left py-2.5 pr-2 align-top">
                     <span className="text-sm font-medium">{row.manner}</span>
@@ -227,27 +231,41 @@ export function ConsonantChart({ onBack, darkToggle }) {
                     );
                   })}
                 </tr>,
-                selectedInRow && (
-                  <tr key={`${row.manner}-detail`} className="bg-amber-50/50 dark:bg-amber-900/10">
-                    <td colSpan={8} className="py-3 px-3">
-                      <div className="flex items-center gap-3 flex-wrap">
+              ];
+
+              if (selectedSound) {
+                // Build example words: static default + dynamic from AI
+                const exWords = [{ word: selectedSound.word, ipa: selectedSound.ipa }];
+                if (dynamicExamples) {
+                  dynamicExamples.forEach(ex => {
+                    if (ex.word.toLowerCase() !== selectedSound.word.toLowerCase()) exWords.push(ex);
+                  });
+                }
+
+                rows.push(
+                  <tr key={`${row.manner}-detail`} className="bg-amber-50/50 dark:bg-amber-900/10 border-t border-amber-200/50 dark:border-amber-800/30">
+                    <td colSpan={8} className="py-2.5 px-3">
+                      <div className="flex items-center gap-2.5 flex-wrap">
                         <span className="font-mono text-sm font-semibold shrink-0">{selected}</span>
-                        {loading && !selectedExamples && (
-                          <span className="text-xs text-gray-400">Loading…</span>
-                        )}
-                        {selectedExamples && selectedExamples.map((ex, i) => (
+                        <span className="text-gray-300 dark:text-gray-600">|</span>
+                        {exWords.map((ex, i) => (
                           <SpeakWord key={i} word={ex.word} ipa={ex.ipa}>
-                            <span className="inline-flex items-baseline gap-1 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 hover:border-amber-400 transition-colors text-sm">
+                            <span className="inline-flex items-baseline gap-1 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 hover:border-amber-400 transition-colors text-sm cursor-pointer">
                               <span className="font-medium">{ex.word}</span>
-                              <span className="font-mono text-xs text-gray-400">{ex.ipa}</span>
+                              <span className="font-mono text-[11px] text-gray-400">{ex.ipa}</span>
                             </span>
                           </SpeakWord>
                         ))}
+                        {loading && !dynamicExamples && (
+                          <span className="text-xs text-gray-400 italic">loading more…</span>
+                        )}
                       </div>
                     </td>
                   </tr>
-                ),
-              ];
+                );
+              }
+
+              return rows;
             })}
           </tbody>
         </table>
