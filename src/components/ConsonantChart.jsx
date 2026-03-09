@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { speak, stopSpeak } from "../services/tts";
 import { SpeakWord } from "./SpeakWord";
 import { IconBack } from "./Icons";
@@ -110,35 +110,55 @@ Respond ONLY with valid JSON (no markdown, no backticks):
 Use common everyday American English words. All IPA must be accurate.`,
 };
 
-// TTS-friendly short words/syllables that isolate each consonant sound
-// Uses real words or natural syllables that TTS engines handle well
-const SOUND_TTS = {
-  "/p/": "puh",    "/b/": "buh",
-  "/t/": "tuh",    "/d/": "duh",
-  "/k/": "kuh",    "/g/": "guh, guh",
-  "/f/": "fah",    "/v/": "vah",
-  "/θ/": "thah",   "/ð/": "thuh",
-  "/s/": "sah",    "/z/": "zah",
-  "/ʃ/": "shah",   "/ʒ/": "zhah",
-  "/h/": "hah",
-  "/tʃ/": "chuh",  "/dʒ/": "juh",
-  "/m/": "mmm",    "/n/": "nnn",   "/ŋ/": "sing, ng",
-  "/l/": "lah",    "/r/": "rah",
-  "/w/": "wah",    "/j/": "yah",
+// Pre-generated ElevenLabs audio files for isolated consonant sounds
+const SOUND_FILES = {
+  "/p/": "/sounds/p.mp3",     "/b/": "/sounds/b.mp3",
+  "/t/": "/sounds/t.mp3",     "/d/": "/sounds/d.mp3",
+  "/k/": "/sounds/k.mp3",     "/g/": "/sounds/g.mp3",
+  "/f/": "/sounds/f.mp3",     "/v/": "/sounds/v.mp3",
+  "/θ/": "/sounds/th_voiceless.mp3", "/ð/": "/sounds/th_voiced.mp3",
+  "/s/": "/sounds/s.mp3",     "/z/": "/sounds/z.mp3",
+  "/ʃ/": "/sounds/sh.mp3",    "/ʒ/": "/sounds/zh.mp3",
+  "/h/": "/sounds/h.mp3",
+  "/tʃ/": "/sounds/ch.mp3",   "/dʒ/": "/sounds/dj.mp3",
+  "/m/": "/sounds/m.mp3",     "/n/": "/sounds/n.mp3",  "/ŋ/": "/sounds/ng.mp3",
+  "/l/": "/sounds/l.mp3",     "/r/": "/sounds/r.mp3",
+  "/w/": "/sounds/w.mp3",     "/j/": "/sounds/y.mp3",
 };
+
+function playSoundFile(ipa) {
+  const file = SOUND_FILES[ipa];
+  if (!file) return;
+  const audio = new Audio(file);
+  audio.play();
+  return audio;
+}
 
 function SoundCell({ sound, onSelect, selected }) {
   if (!sound) return null;
   const isActive = selected === sound.ipa;
   const [playing, setPlaying] = useState(null); // "ipa" | "word" | null
 
+  const audioRef = useRef(null);
+
   const playSound = useCallback((type, e) => {
     e.stopPropagation();
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     stopSpeak();
     if (playing === type) { setPlaying(null); return; }
-    const text = type === "ipa" ? (SOUND_TTS[sound.ipa] || sound.word) : sound.word;
     setPlaying(type);
-    speak(text, () => setPlaying(null), () => setPlaying(null));
+    if (type === "ipa") {
+      const audio = playSoundFile(sound.ipa);
+      if (audio) {
+        audioRef.current = audio;
+        audio.onended = () => { setPlaying(null); audioRef.current = null; };
+        audio.onerror = () => { setPlaying(null); audioRef.current = null; };
+      } else {
+        setPlaying(null);
+      }
+    } else {
+      speak(sound.word, () => setPlaying(null), () => setPlaying(null));
+    }
     onSelect(sound.ipa);
   }, [playing, sound, onSelect]);
 
