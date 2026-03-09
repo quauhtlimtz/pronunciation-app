@@ -325,6 +325,12 @@ export function ConsonantChart({ onBack, darkToggle }) {
           </tbody>
         </table>
       </div>
+
+      {/* Attribution */}
+      <p className="font-mono text-[10px] text-gray-400 dark:text-gray-600 mt-6 text-center">
+        Sound recordings: Peter Isotalo, Denelson83, UCLA Phonetics Lab Archive &mdash;{" "}
+        <a href="https://www.ipachart.com/" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-500">ipachart.com</a>
+      </p>
     </div>
   );
 }
