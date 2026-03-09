@@ -6,13 +6,14 @@ import { AdminPanel } from "./components/AdminPanel";
 import { IconCheck, IconArrow } from "./components/Icons";
 import { AnatomyDiagram } from "./components/AnatomyDiagram";
 import { FreeShadow } from "./components/FreeShadow";
+import { ConsonantChart } from "./components/ConsonantChart";
 import { Footer } from "./components/Footer";
 import { useAuth } from "./components/AuthContext";
 import { TestRecorder } from "./TestRecorder";
 
 function getParams() {
   const p = new URLSearchParams(window.location.search);
-  return { lesson: p.get("lesson"), tab: p.get("tab"), admin: p.has("admin"), anatomy: p.has("anatomy"), shadow: p.has("shadow"), test: p.has("test") };
+  return { lesson: p.get("lesson"), tab: p.get("tab"), admin: p.has("admin"), anatomy: p.has("anatomy"), shadow: p.has("shadow"), chart: p.has("chart"), test: p.has("test") };
 }
 
 function setParams(lesson, tab) {
@@ -35,6 +36,7 @@ export default function App() {
   const [showAdmin, setShowAdmin]   = useState(initial.admin && isAdmin);
   const [showAnatomy, setShowAnatomy] = useState(initial.anatomy);
   const [showShadow, setShowShadow] = useState(initial.shadow);
+  const [showChart, setShowChart]   = useState(initial.chart);
   const [dark, setDark]             = useState(null);
 
   // Build completed map from Supabase progress
@@ -46,13 +48,14 @@ export default function App() {
   // Sync URL on back/forward
   useEffect(() => {
     const onPop = () => {
-      const { lesson, tab, admin, anatomy, shadow } = getParams();
+      const { lesson, tab, admin, anatomy, shadow, chart } = getParams();
       const def = LESSON_DEFS.find(l => l.id === lesson);
       setActive(def || null);
       setCurrentTab(tab || "theory");
       setShowAdmin(admin && isAdmin);
       setShowAnatomy(anatomy);
       setShowShadow(shadow);
+      setShowChart(chart);
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
@@ -70,6 +73,7 @@ export default function App() {
     setShowAdmin(false);
     setShowAnatomy(false);
     setShowShadow(false);
+    setShowChart(false);
     setCurrentTab("theory");
     setParams(null, null);
   }, []);
@@ -127,6 +131,16 @@ export default function App() {
   if (showShadow) {
     return (
       <FreeShadow
+        onBack={goHome}
+        darkToggle={<ThemeToggle dark={dark} setDark={setDark} />}
+      />
+    );
+  }
+
+  // Consonant chart
+  if (showChart) {
+    return (
+      <ConsonantChart
         onBack={goHome}
         darkToggle={<ThemeToggle dark={dark} setDark={setDark} />}
       />
@@ -260,6 +274,16 @@ export default function App() {
               <div className="flex-1 min-w-0">
                 <span className="text-sm">Vocal Tract Anatomy</span>
                 <p className="font-mono text-sm text-gray-500 mt-1">Interactive diagram · sounds by place of articulation</p>
+              </div>
+              <span className="text-gray-400 shrink-0"><IconArrow size="sm" /></span>
+            </div>
+            <div
+              className="border-b border-gray-100 dark:border-gray-800 px-4 py-3.5 cursor-pointer flex items-center gap-3.5 hover:bg-white dark:hover:bg-gray-900 active:bg-white dark:active:bg-gray-900 transition-colors"
+              onClick={() => { setShowChart(true); window.history.pushState(null, "", "?chart"); }}
+            >
+              <div className="flex-1 min-w-0">
+                <span className="text-sm">Consonant Chart</span>
+                <p className="font-mono text-sm text-gray-500 mt-1">24 sounds · placement × manner · tap to hear</p>
               </div>
               <span className="text-gray-400 shrink-0"><IconArrow size="sm" /></span>
             </div>
