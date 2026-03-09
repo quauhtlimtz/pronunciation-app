@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
+import { speak, stopSpeak } from "../services/tts";
 import { SpeakWord } from "./SpeakWord";
-import { IconBack } from "./Icons";
+import { IconBack, IconPlay } from "./Icons";
 import { getContent } from "../services/content";
 import { useAuth } from "./AuthContext";
 
@@ -112,20 +113,38 @@ Use common everyday American English words. All IPA must be accurate.`,
 function SoundCell({ sound, onSelect, selected }) {
   if (!sound) return null;
   const isActive = selected === sound.ipa;
-  // Strip slashes for TTS: "/p/" → "p", "/tʃ/" → "tʃ"
-  const bare = sound.ipa.replace(/\//g, "");
+  const [playing, setPlaying] = useState(null); // "ipa" | "word" | null
+
+  const playSound = useCallback((type, e) => {
+    e.stopPropagation();
+    stopSpeak();
+    if (playing === type) { setPlaying(null); return; }
+    const text = type === "ipa" ? sound.ipa.replace(/\//g, "") : sound.word;
+    setPlaying(type);
+    speak(text, () => setPlaying(null), () => setPlaying(null));
+    onSelect(sound.ipa);
+  }, [playing, sound, onSelect]);
+
   return (
     <span
-      className={`inline-flex flex-col items-center gap-0.5 px-1.5 py-1 rounded transition-colors
-        ${isActive ? "bg-amber-100 dark:bg-amber-900/30" : ""}`}
+      className={`inline-flex flex-col items-center gap-0.5 px-1.5 py-1 rounded transition-colors cursor-pointer select-none
+        ${isActive ? "bg-amber-100 dark:bg-amber-900/30" : "hover:bg-gray-100 dark:hover:bg-gray-800"}`}
       onClick={() => onSelect(sound.ipa)}
     >
-      <SpeakWord word={bare} ipa={sound.ipa} className="!border-none">
-        <span className="font-mono text-sm font-semibold cursor-pointer">{sound.ipa}</span>
-      </SpeakWord>
-      <SpeakWord word={sound.word} ipa={sound.ipa} className="!border-none">
-        <span className="text-xs text-gray-500 dark:text-gray-400 cursor-pointer border-b border-dashed border-transparent hover:border-gray-400">{sound.word}</span>
-      </SpeakWord>
+      <span
+        onClick={(e) => playSound("ipa", e)}
+        className="font-mono text-sm font-semibold inline-flex items-center gap-0.5"
+      >
+        {sound.ipa}
+        {playing === "ipa" && <span className="opacity-60"><IconPlay size="sm" /></span>}
+      </span>
+      <span
+        onClick={(e) => playSound("word", e)}
+        className="text-xs text-gray-500 dark:text-gray-400 border-b border-dashed border-transparent hover:border-gray-400 inline-flex items-center gap-0.5"
+      >
+        {sound.word}
+        {playing === "word" && <span className="opacity-60"><IconPlay size="sm" /></span>}
+      </span>
     </span>
   );
 }
