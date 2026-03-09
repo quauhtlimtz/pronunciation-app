@@ -133,17 +133,16 @@ function SoundCell({ sound, onSelect, selected }) {
     >
       <span
         onClick={(e) => playSound("ipa", e)}
-        className="font-mono text-sm font-semibold inline-flex items-center gap-0.5"
+        className="font-mono text-sm font-semibold"
       >
         {sound.ipa}
-        {playing === "ipa" && <span className="opacity-60"><IconPlay size="sm" /></span>}
       </span>
       <span
         onClick={(e) => playSound("word", e)}
-        className="text-xs text-gray-500 dark:text-gray-400 border-b border-dashed border-transparent hover:border-gray-400 inline-flex items-center gap-0.5"
+        className={`text-xs border-b border-dashed border-transparent hover:border-gray-400
+          ${playing ? "text-amber-600 dark:text-amber-400" : "text-gray-500 dark:text-gray-400"}`}
       >
         {sound.word}
-        {playing === "word" && <span className="opacity-60"><IconPlay size="sm" /></span>}
       </span>
     </span>
   );
