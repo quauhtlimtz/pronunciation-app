@@ -109,20 +109,24 @@ Respond ONLY with valid JSON (no markdown, no backticks):
 Use common everyday American English words. All IPA must be accurate.`,
 };
 
-function SoundCell({ sound, examples, onSelect, selected }) {
+function SoundCell({ sound, onSelect, selected }) {
   if (!sound) return null;
   const isActive = selected === sound.ipa;
+  // Strip slashes for TTS: "/p/" → "p", "/tʃ/" → "tʃ"
+  const bare = sound.ipa.replace(/\//g, "");
   return (
-    <SpeakWord word={sound.word} ipa={sound.ipa}>
-      <span
-        onClick={(e) => { e.stopPropagation(); onSelect(sound.ipa); }}
-        className={`inline-flex flex-col items-center gap-0.5 px-1 py-0.5 rounded transition-colors
-          ${isActive ? "bg-amber-100 dark:bg-amber-900/30" : ""}`}
-      >
-        <span className="font-mono text-sm font-semibold">{sound.ipa}</span>
-        <span className="text-xs text-gray-500 dark:text-gray-400">{sound.word}</span>
-      </span>
-    </SpeakWord>
+    <span
+      className={`inline-flex flex-col items-center gap-0.5 px-1.5 py-1 rounded transition-colors
+        ${isActive ? "bg-amber-100 dark:bg-amber-900/30" : ""}`}
+      onClick={() => onSelect(sound.ipa)}
+    >
+      <SpeakWord word={bare} ipa={sound.ipa} className="!border-none">
+        <span className="font-mono text-sm font-semibold cursor-pointer">{sound.ipa}</span>
+      </SpeakWord>
+      <SpeakWord word={sound.word} ipa={sound.ipa} className="!border-none">
+        <span className="text-xs text-gray-500 dark:text-gray-400 cursor-pointer border-b border-dashed border-transparent hover:border-gray-400">{sound.word}</span>
+      </SpeakWord>
+    </span>
   );
 }
 
@@ -148,9 +152,6 @@ export function ConsonantChart({ onBack, darkToggle }) {
   const toggleSelect = useCallback((ipa) => {
     setSelected(prev => prev === ipa ? null : ipa);
   }, []);
-
-  // Find extra examples for selected sound
-  const selectedExamples = selected && examples?.[selected];
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
@@ -196,66 +197,61 @@ export function ConsonantChart({ onBack, darkToggle }) {
             </tr>
           </thead>
           <tbody>
-            {CHART.map((row) => (
-              <tr key={row.manner} className="border-t border-gray-200 dark:border-gray-700">
-                <td className="text-left py-2.5 pr-2 align-top">
-                  <span className="text-sm font-medium">{row.manner}</span>
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 leading-tight">{row.desc}</p>
-                </td>
-                {PLACEMENTS.map((_, colIdx) => {
-                  const cell = row.cells.find(c => c.col === colIdx);
-                  if (!cell) return <td key={colIdx} className="py-2.5 px-1" />;
-                  return (
-                    <td key={colIdx} className="py-2.5 px-1 align-middle">
-                      <div className="flex flex-col items-center gap-1">
-                        {cell.voiceless && (
-                          <SoundCell sound={cell.voiceless} examples={examples} onSelect={toggleSelect} selected={selected} />
+            {CHART.map((row) => {
+              // Check if selected sound is in this row
+              const selectedInRow = selected && row.cells.some(c =>
+                c.voiceless?.ipa === selected || c.voiced?.ipa === selected
+              );
+              const selectedExamples = selected && examples?.[selected];
+
+              return [
+                <tr key={row.manner} className="border-t border-gray-200 dark:border-gray-700">
+                  <td className="text-left py-2.5 pr-2 align-top">
+                    <span className="text-sm font-medium">{row.manner}</span>
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 leading-tight">{row.desc}</p>
+                  </td>
+                  {PLACEMENTS.map((_, colIdx) => {
+                    const cell = row.cells.find(c => c.col === colIdx);
+                    if (!cell) return <td key={colIdx} className="py-2.5 px-1" />;
+                    return (
+                      <td key={colIdx} className="py-2.5 px-1 align-middle">
+                        <div className="flex flex-col items-center gap-1">
+                          {cell.voiceless && (
+                            <SoundCell sound={cell.voiceless} onSelect={toggleSelect} selected={selected} />
+                          )}
+                          {cell.voiced && (
+                            <SoundCell sound={cell.voiced} onSelect={toggleSelect} selected={selected} />
+                          )}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>,
+                selectedInRow && (
+                  <tr key={`${row.manner}-detail`} className="bg-amber-50/50 dark:bg-amber-900/10">
+                    <td colSpan={8} className="py-3 px-3">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className="font-mono text-sm font-semibold shrink-0">{selected}</span>
+                        {loading && !selectedExamples && (
+                          <span className="text-xs text-gray-400">Loading…</span>
                         )}
-                        {cell.voiced && (
-                          <SoundCell sound={cell.voiced} examples={examples} onSelect={toggleSelect} selected={selected} />
-                        )}
+                        {selectedExamples && selectedExamples.map((ex, i) => (
+                          <SpeakWord key={i} word={ex.word} ipa={ex.ipa}>
+                            <span className="inline-flex items-baseline gap-1 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 hover:border-amber-400 transition-colors text-sm">
+                              <span className="font-medium">{ex.word}</span>
+                              <span className="font-mono text-xs text-gray-400">{ex.ipa}</span>
+                            </span>
+                          </SpeakWord>
+                        ))}
                       </div>
                     </td>
-                  );
-                })}
-              </tr>
-            ))}
+                  </tr>
+                ),
+              ];
+            })}
           </tbody>
         </table>
       </div>
-
-      {/* Selected sound detail */}
-      {selected && (
-        <div className="mt-6 p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-mono text-base font-semibold">{selected}</h2>
-            <button
-              onClick={() => setSelected(null)}
-              className="text-xs font-mono text-gray-400 cursor-pointer bg-transparent border-none"
-            >
-              close
-            </button>
-          </div>
-          {loading && !selectedExamples && (
-            <p className="text-sm text-gray-400">Loading examples…</p>
-          )}
-          {selectedExamples && (
-            <div className="flex flex-wrap gap-3">
-              {selectedExamples.map((ex, i) => (
-                <SpeakWord key={i} word={ex.word} ipa={ex.ipa}>
-                  <span className="inline-flex items-baseline gap-1.5 px-2 py-1 rounded border border-gray-200 dark:border-gray-700 hover:border-amber-400 transition-colors">
-                    <span className="text-sm font-medium">{ex.word}</span>
-                    <span className="font-mono text-xs text-gray-400">{ex.ipa}</span>
-                  </span>
-                </SpeakWord>
-              ))}
-            </div>
-          )}
-          {!loading && !selectedExamples && (
-            <p className="text-sm text-gray-400">Tap a sound to see examples</p>
-          )}
-        </div>
-      )}
     </div>
   );
 }
