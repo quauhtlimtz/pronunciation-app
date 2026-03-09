@@ -110,6 +110,23 @@ Respond ONLY with valid JSON (no markdown, no backticks):
 Use common everyday American English words. All IPA must be accurate.`,
 };
 
+// TTS-friendly approximations for isolated consonant sounds
+// Stops get a minimal schwa, fricatives/nasals get sustained, glides get a short vowel
+const SOUND_TTS = {
+  "/p/": "puh",   "/b/": "buh",
+  "/t/": "tuh",   "/d/": "duh",
+  "/k/": "kuh",   "/g/": "guh",
+  "/f/": "ffff",   "/v/": "vvvv",
+  "/θ/": "thhh",  "/ð/": "thhh",
+  "/s/": "ssss",   "/z/": "zzzz",
+  "/ʃ/": "shhh",  "/ʒ/": "zhuh",
+  "/h/": "hhhh",
+  "/tʃ/": "chuh", "/dʒ/": "juh",
+  "/m/": "mmmm",  "/n/": "nnnn",  "/ŋ/": "nggg",
+  "/l/": "llll",   "/r/": "rrrr",
+  "/w/": "wuh",   "/j/": "yuh",
+};
+
 function SoundCell({ sound, onSelect, selected }) {
   if (!sound) return null;
   const isActive = selected === sound.ipa;
@@ -119,7 +136,7 @@ function SoundCell({ sound, onSelect, selected }) {
     e.stopPropagation();
     stopSpeak();
     if (playing === type) { setPlaying(null); return; }
-    const text = type === "ipa" ? sound.ipa.replace(/\//g, "") : sound.word;
+    const text = type === "ipa" ? (SOUND_TTS[sound.ipa] || sound.word) : sound.word;
     setPlaying(type);
     speak(text, () => setPlaying(null), () => setPlaying(null));
     onSelect(sound.ipa);
