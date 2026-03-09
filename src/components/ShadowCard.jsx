@@ -374,8 +374,8 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
                 <button className="btn btn-primary flex-1 gap-1" onClick={() => setStep("compare")}>
                   compare <IconArrow size="sm" />
                 </button>
-                <button className="btn btn-default btn-sm gap-1" onClick={playMine} disabled={!recReady}>
-                  <IconPlay size="sm" /> {myPlay ? "playing…" : recReady ? "preview" : "loading…"}
+                <button className="btn btn-default btn-sm gap-1" onClick={myPlay ? stopMine : playMine} disabled={!recReady}>
+                  {myPlay ? <><IconPause size="sm" /> playing</> : <><IconPlay size="sm" /> {recReady ? "preview" : "loading…"}</>}
                 </button>
                 <span className="text-xs text-gray-400 font-mono shrink-0">{recDuration}s</span>
               </div>
