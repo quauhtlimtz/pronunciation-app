@@ -346,4 +346,136 @@ CRITICAL token rules — follow these EXACTLY:
 - IMPORTANT: Each phrase MUST have a MIX of all 3 stress levels. Typically 1-2 words at s:2, 2-3 at s:1, rest at s:0. Do NOT mark everything as s:0.
 - IMPORTANT: Most phrases should have at least 1-2 linked pairs (lk:true).`,
   },
+
+  // ── SESSION: Mar 9, 2026 ───────────────────────────────────────────────────
+  {
+    id: "consonant-clusters",
+    title: "Consonant Clusters",
+    subtitle: "Groups of 2–3 consonants together in a syllable",
+    session: "Mar 9, 2026",
+    exerciseType: "classify",
+    exerciseQuestion: "What happens to the consonant cluster in natural speech?",
+    exerciseOptions: ["All pronounced", "Middle sound deleted", "Simplified"],
+    prompt: `You are an American English pronunciation expert teaching non-native speakers.
+Generate fresh practice content for CONSONANT CLUSTERS in American English.
+
+Key concepts from class notes:
+- Consonant cluster = groups of 2-3 consonants together in a syllable
+- Some clusters are difficult even for native speakers — in natural speech the middle /t/ or /d/ sound often gets deleted
+- Examples: /kts/ "facts" → /fæks/ (t deleted), /pts/ "accepts" → /æk.sɛps/ (t deleted), /ndz/ "friends" → /frɛnz/ (d deleted)
+- Common initial clusters: /str/, /spl/, /skr/, /bl/, /fl/, /gr/, /tr/, /pr/
+- Common final clusters: /kts/, /pts/, /ndz/, /lts/, /mps/, /ŋks/
+- Non-native speakers often insert vowels between consonants (epenthesis) — e.g. "street" → "es-treet"
+
+Respond ONLY with valid JSON (no markdown, no backticks):
+{
+  "theory": [
+    {"symbol": "CC", "name": "Initial Clusters", "rule": "Groups of 2-3 consonants at the start of a word — pronounce them smoothly without inserting vowels between them.", "tip": "...", "examples": [
+      {"word": "...", "ipa": "/IPA/", "syllables": "..."},
+      {"word": "...", "ipa": "/IPA/", "syllables": "..."},
+      {"word": "...", "ipa": "/IPA/", "syllables": "..."},
+      {"word": "...", "ipa": "/IPA/", "syllables": "..."}
+    ]},
+    {"symbol": "CC#", "name": "Final Clusters", "rule": "Groups of consonants at the end of a word — the most challenging for non-native speakers.", "tip": "...", "examples": [{...},{...},{...},{...}]},
+    {"symbol": "∅", "name": "Cluster Simplification", "rule": "In natural fast speech, some middle consonants (especially /t/ and /d/) are deleted from 3-consonant clusters.", "tip": "...", "examples": [{...},{...},{...},{...}]}
+  ],
+  "exercises": [
+    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "All pronounced"},
+    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "Middle sound deleted"},
+    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "All pronounced"},
+    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "Simplified"},
+    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "Middle sound deleted"},
+    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "All pronounced"},
+    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "Simplified"},
+    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "Middle sound deleted"},
+    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "All pronounced"},
+    {"word": "...", "ipa": "/IPA/", "syllables": "...", "answer": "Middle sound deleted"}
+  ],
+  "shadowing": [
+    {"phrase":"...","ipa":"/IPA/","syllables":"...","note":"...","tokens":[{"t":"word","s":2,"lk":false},{"t":"word","s":0,"lk":true},{"t":"word","s":1,"lk":false}]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]}
+  ]
+}
+IMPORTANT exercise guidelines:
+- "All pronounced" = every consonant in the cluster is articulated (e.g. "strength" /strɛŋkθ/, "glimpse" /ɡlɪmps/)
+- "Middle sound deleted" = the /t/ or /d/ in a 3-consonant cluster is dropped in natural speech (e.g. "facts" /fæks/, "hands" /hænz/, "months" /mʌnθs/)
+- "Simplified" = the cluster is reduced in other ways in casual speech (e.g. "fifths" → /fɪfs/, "clothes" → /kloʊz/)
+- Use common everyday words. Mix initial and final clusters.
+
+CRITICAL token rules — follow these EXACTLY:
+- "t" = the word text
+- "s" = sentence-level stress: 2 = primary (content words that carry the main emphasis), 1 = secondary (other content words with some stress), 0 = unstressed (function words: a, the, to, is, in, of, etc.)
+- "lk" = true when this word's final consonant links phonetically to the next word's initial vowel
+- IMPORTANT: Each phrase MUST have a MIX of all 3 stress levels. Typically 1-2 words at s:2, 2-3 at s:1, rest at s:0. Do NOT mark everything as s:0.
+- IMPORTANT: Most phrases should have at least 1-2 linked pairs (lk:true).
+Use everyday American English words. IPA must be accurate. Shadowing phrases should be natural conversation.`,
+  },
+  {
+    id: "ed-endings",
+    title: "-ED Endings",
+    subtitle: "/t/ · /d/ · /əd/ — three different sounds",
+    session: "Mar 9, 2026",
+    exerciseType: "classify",
+    exerciseQuestion: "How is the -ED ending pronounced?",
+    exerciseOptions: ["/t/", "/d/", "/əd/"],
+    prompt: `You are an American English pronunciation expert teaching non-native speakers.
+Generate fresh practice content for -ED ENDINGS in American English past tense.
+
+Key rules from class notes:
+- /t/ after VOICELESS sounds: missed (/s/→/t/), watched (/tʃ/→/t/), shipped (/p/→/t/), baked (/k/→/t/)
+  Voiceless final sounds: /p/, /k/, /f/, /s/, /ʃ/, /tʃ/, /θ/
+- /d/ after VOICED sounds (not the letter!) or vowels: played, planned (/n/→/d/), cried (/aɪ/→/d/), seemed (/m/→/d/)
+  Voiced final sounds: /b/, /g/, /v/, /z/, /ʒ/, /dʒ/, /ð/, /m/, /n/, /ŋ/, /l/, /r/ + all vowels
+- /əd/ (adds extra syllable) when the base word ends in /t/ or /d/: ended, acted (/t/→/əd/), needed (/d/→/əd/), waited (/t/→/əd/)
+
+Respond ONLY with valid JSON (no markdown, no backticks):
+{
+  "theory": [
+    {"symbol": "/t/", "name": "Voiceless -ED", "rule": "After voiceless consonants (/p/, /k/, /f/, /s/, /ʃ/, /tʃ/, /θ/), the -ed is pronounced /t/.", "tip": "Touch your throat — if it doesn't vibrate on the last sound before -ed, use /t/.", "examples": [
+      {"word": "...", "ipa": "/IPA/", "syllables": "..."},
+      {"word": "...", "ipa": "/IPA/", "syllables": "..."},
+      {"word": "...", "ipa": "/IPA/", "syllables": "..."},
+      {"word": "...", "ipa": "/IPA/", "syllables": "..."}
+    ]},
+    {"symbol": "/d/", "name": "Voiced -ED", "rule": "After voiced consonants and vowels, the -ed is pronounced /d/.", "tip": "If your throat vibrates on the last sound before -ed (or it's a vowel), use /d/.", "examples": [{...},{...},{...},{...}]},
+    {"symbol": "/əd/", "name": "Extra Syllable -ED", "rule": "After /t/ or /d/, the -ed adds an extra syllable pronounced /əd/ or /ɪd/.", "tip": "This is the only case where -ed adds a syllable. 'Want' is one syllable, 'wanted' is two.", "examples": [{...},{...},{...},{...}]}
+  ],
+  "exercises": [
+    {"word": "...", "highlight": "ed", "ipa": "/IPA/", "syllables": "...", "answer": "/t/"},
+    {"word": "...", "highlight": "ed", "ipa": "/IPA/", "syllables": "...", "answer": "/d/"},
+    {"word": "...", "highlight": "ed", "ipa": "/IPA/", "syllables": "...", "answer": "/əd/"},
+    {"word": "...", "highlight": "ed", "ipa": "/IPA/", "syllables": "...", "answer": "/t/"},
+    {"word": "...", "highlight": "ed", "ipa": "/IPA/", "syllables": "...", "answer": "/d/"},
+    {"word": "...", "highlight": "ed", "ipa": "/IPA/", "syllables": "...", "answer": "/əd/"},
+    {"word": "...", "highlight": "ed", "ipa": "/IPA/", "syllables": "...", "answer": "/t/"},
+    {"word": "...", "highlight": "ed", "ipa": "/IPA/", "syllables": "...", "answer": "/d/"},
+    {"word": "...", "highlight": "ed", "ipa": "/IPA/", "syllables": "...", "answer": "/əd/"},
+    {"word": "...", "highlight": "ed", "ipa": "/IPA/", "syllables": "...", "answer": "/t/"},
+    {"word": "...", "highlight": "ed", "ipa": "/IPA/", "syllables": "...", "answer": "/d/"},
+    {"word": "...", "highlight": "ed", "ipa": "/IPA/", "syllables": "...", "answer": "/əd/"}
+  ],
+  "shadowing": [
+    {"phrase":"...","ipa":"/IPA/","syllables":"...","note":"...","tokens":[{"t":"word","s":2,"lk":false},{"t":"word","s":0,"lk":true},{"t":"word","s":1,"lk":false}]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]}
+  ]
+}
+CRITICAL exercise "highlight" rules:
+- "highlight" = always "ed" (or "d" for words like "seemed" where only "d" is the ending) — the letters that form the -ed ending
+- Must be a substring at the end of the word
+- Use varied verbs — mix regular past tense forms across all 3 categories evenly (4 each)
+
+CRITICAL token rules — follow these EXACTLY:
+- "t" = the word text
+- "s" = sentence-level stress: 2 = primary (content words that carry the main emphasis), 1 = secondary (other content words with some stress), 0 = unstressed (function words: a, the, to, is, in, of, etc.)
+- "lk" = true when this word's final consonant links phonetically to the next word's initial vowel
+- IMPORTANT: Each phrase MUST have a MIX of all 3 stress levels. Typically 1-2 words at s:2, 2-3 at s:1, rest at s:0. Do NOT mark everything as s:0.
+- IMPORTANT: Most phrases should have at least 1-2 linked pairs (lk:true).
+Use everyday American English words. IPA must be accurate. Shadowing phrases should use past tense naturally.`,
+  },
 ];
