@@ -76,9 +76,9 @@ export async function fetchPhrasePool(userId, page = 0) {
   const to = from + PAGE_SIZE - 1;
 
   // Explicit filter: public phrases + user's own private phrases
-  const { data, error, count } = await supabase
+  const { data, error } = await supabase
     .from("free_shadow_content")
-    .select("*", { count: "exact" })
+    .select("*")
     .or(`private.eq.false,user_id.eq.${userId}`)
     .order("created_at", { ascending: false })
     .range(from, to);
@@ -88,11 +88,11 @@ export async function fetchPhrasePool(userId, page = 0) {
     // Fallback: try public-only query if the combined query fails
     const { data: pub } = await supabase
       .from("free_shadow_content")
-      .select("*", { count: "exact" })
+      .select("*")
       .eq("private", false)
       .order("created_at", { ascending: false })
       .range(from, to);
-    return { items: pub || [], total: 0, hasMore: (pub?.length || 0) === PAGE_SIZE };
+    return { items: pub || [], hasMore: (pub?.length || 0) === PAGE_SIZE };
   }
-  return { items: data || [], total: count || 0, hasMore: (data?.length || 0) === PAGE_SIZE };
+  return { items: data || [], hasMore: (data?.length || 0) === PAGE_SIZE };
 }

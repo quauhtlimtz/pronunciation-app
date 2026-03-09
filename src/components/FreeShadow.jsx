@@ -104,7 +104,7 @@ export function FreeShadow({ onBack, darkToggle }) {
         const to = from + 19;
         const { data } = await supabase
           .from("free_shadow_content")
-          .select("*", { count: "exact" })
+          .select("*")
           .eq("private", false)
           .order("created_at", { ascending: false })
           .range(from, to);
