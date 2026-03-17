@@ -83,20 +83,12 @@ export function FreeShadow({ onBack, darkToggle }) {
     micStreamRef.current = stream;
   }, []);
 
-  // Load daily usage + first page of pool (wait for auth to settle)
-  useEffect(() => {
-    if (authLoading) return;
-    if (user) {
-      getGenerationsToday(user.id).then(setUsedToday).catch(e => console.error("getGenerationsToday:", e));
-    }
-    loadPool(0);
-  }, [user, authLoading]);
-
-  async function loadPool(p) {
+  // Load pool — extracted so it can be called from effect and "Load more"
+  const loadPool = useCallback(async (p, currentUser) => {
     setLoadingPool(true);
     try {
-      if (user) {
-        const { items, hasMore: more } = await fetchPhrasePool(user.id, p);
+      if (currentUser) {
+        const { items, hasMore: more } = await fetchPhrasePool(currentUser.id, p);
         setPool(prev => p === 0 ? items : [...prev, ...items]);
         setHasMore(more);
       } else {
@@ -116,7 +108,16 @@ export function FreeShadow({ onBack, darkToggle }) {
     } catch (e) {
       console.error("loadPool:", e);
     } finally { setLoadingPool(false); }
-  }
+  }, []);
+
+  // Load daily usage + first page of pool (wait for auth to settle)
+  useEffect(() => {
+    if (authLoading) return;
+    if (user) {
+      getGenerationsToday(user.id).then(setUsedToday).catch(e => console.error("getGenerationsToday:", e));
+    }
+    loadPool(0, user);
+  }, [user, authLoading, loadPool]);
 
   const canGenerate = user && usedToday !== null && usedToday < dailyLimit;
 
@@ -267,7 +268,7 @@ export function FreeShadow({ onBack, darkToggle }) {
             {hasMore && (
               <button
                 className="btn btn-default btn-sm w-full mt-2"
-                onClick={() => loadPool(page + 1)}
+                onClick={() => loadPool(page + 1, user)}
                 disabled={loadingPool}
               >
                 {loadingPool ? "Loading…" : "Load more"}
