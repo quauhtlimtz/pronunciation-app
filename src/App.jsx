@@ -26,7 +26,7 @@ function setParams(lesson, tab) {
 }
 
 export default function App() {
-  const { user, loading: authLoading, progress, isAdmin, signIn, signOut, completeLesson, saveShadowingPhrase, trackActivity } = useAuth();
+  const { user, loading: authLoading, progress, isAdmin, signIn, signOut, completeLesson, savePracticeAnswer, saveShadowingPhrase, trackActivity } = useAuth();
 
   const initial = getParams();
   const initialLesson = LESSON_DEFS.find(l => l.id === initial.lesson);
@@ -156,6 +156,7 @@ export default function App() {
         completed={completed[active.id]}
         progress={progress[active.id]}
         onComplete={() => completeLesson(active.id, null)}
+        onPracticeAnswer={(key, total) => savePracticeAnswer(active.id, key, total)}
         onShadowingPhrase={(idx, total) => saveShadowingPhrase(active.id, idx, total)}
         darkToggle={<ThemeToggle dark={dark} setDark={setDark} />}
         user={user}

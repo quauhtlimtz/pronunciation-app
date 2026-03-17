@@ -71,6 +71,25 @@ export function AuthProvider({ children }) {
     setProgress(p => ({ ...p, [lessonId]: { ...existing, ...data, lesson_id: lessonId } }));
   }
 
+  async function savePracticeAnswer(lessonId, exerciseKey, totalExercises) {
+    if (!user) return;
+    const existing = progress[lessonId];
+    const done = [...new Set([...(existing?.practice_done || []), exerciseKey])];
+    const allDone = done.length >= totalExercises;
+    const data = {
+      practice_done: done,
+      completed: allDone || existing?.completed || false,
+      score: existing?.score ?? null,
+      attempts: existing?.attempts ?? 0,
+    };
+    if (allDone && !existing?.completed) data.attempts += 1;
+    await saveProgress(user.id, lessonId, data);
+    if (allDone && !existing?.completed) {
+      await logActivity(user.id, "complete_lesson", { lessonId, via: "practice" });
+    }
+    setProgress(p => ({ ...p, [lessonId]: { ...existing, ...data, lesson_id: lessonId } }));
+  }
+
   async function trackActivity(action, details = {}) {
     if (!user) return;
     await logActivity(user.id, action, details);
@@ -87,6 +106,7 @@ export function AuthProvider({ children }) {
       signIn: signInWithGoogle,
       signOut,
       completeLesson,
+      savePracticeAnswer,
       saveShadowingPhrase,
       trackActivity,
     }}>

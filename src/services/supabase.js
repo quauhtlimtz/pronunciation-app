@@ -65,6 +65,7 @@ export async function saveProgress(userId, lessonId, data) {
     updated_at: new Date().toISOString(),
   };
   if (data.shadowing_done !== undefined) row.shadowing_done = data.shadowing_done;
+  if (data.practice_done !== undefined) row.practice_done = data.practice_done;
   const { error } = await supabase.from("progress").upsert(row, { onConflict: "user_id,lesson_id" });
   if (error) console.error("saveProgress:", error);
 }

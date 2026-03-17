@@ -73,14 +73,14 @@ function ConfirmDialog({ onConfirm, onCancel }) {
   );
 }
 
-export function LessonView({ def, onBack, completed, progress: lessonProgress, onComplete, onShadowingPhrase, darkToggle, tab = "theory", onTabChange, user }) {
+export function LessonView({ def, onBack, completed, progress: lessonProgress, onComplete, onPracticeAnswer, onShadowingPhrase, darkToggle, tab = "theory", onTabChange, user }) {
   const setTab = onTabChange || (() => {});
   const [content, setContent] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState(null);
-  const [answers, setAnswers] = useState({});
-  const [submitted, setSub]   = useState(false);
-  const [score, setScore]     = useState(null);
+  const [answers, setAnswers] = useState({});     // { key: chosen option }
+  const [checked, setChecked] = useState({});     // { key: true } — exercises that have been checked
+  const [correct, setCorrect] = useState({});     // { key: true } — exercises answered correctly
   const [exItems, setEx]      = useState([]);
   const [fromCache, setFromCache] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -138,8 +138,24 @@ export function LessonView({ def, onBack, completed, progress: lessonProgress, o
     try {
       const data = await getContent(def, { user, force });
       setContent(data);
-      setEx([...data.exercises].sort(() => Math.random() - 0.5));
-      setAnswers({}); setSub(false); setScore(null);
+      const shuffled = [...data.exercises].sort(() => Math.random() - 0.5);
+      setEx(shuffled);
+      // Restore previously correct answers from saved progress
+      const savedPractice = lessonProgress?.practice_done || [];
+      const restoredAnswers = {};
+      const restoredCorrect = {};
+      const restoredChecked = {};
+      shuffled.forEach((item) => {
+        const key = item.word || item.phrase;
+        if (savedPractice.includes(key)) {
+          restoredAnswers[key] = item.answer;
+          restoredCorrect[key] = true;
+          restoredChecked[key] = true;
+        }
+      });
+      setAnswers(restoredAnswers);
+      setCorrect(restoredCorrect);
+      setChecked(restoredChecked);
       setFromCache(!force);
     } catch (e) { setError(e.message); }
     finally { clearInterval(timerRef.current); setLoading(false); }
@@ -150,18 +166,31 @@ export function LessonView({ def, onBack, completed, progress: lessonProgress, o
     return () => clearInterval(timerRef.current);
   }, [def.id]);
 
-  function submitEx() {
-    let c = 0;
-    exItems.forEach(i => { if (answers[i.word || i.phrase] === i.answer) c++; });
-    setScore(c); setSub(true);
+  function selectAnswer(item, opt) {
+    const key = item.word || item.phrase;
+    if (correct[key] || checked[key]) return; // already locked
+    setAnswers(p => ({ ...p, [key]: opt }));
+    setChecked(p => ({ ...p, [key]: true }));
+    if (opt === item.answer) {
+      setCorrect(p => ({ ...p, [key]: true }));
+      // Save this correct answer
+      const totalDone = Object.keys(correct).length + 1; // +1 for this one
+      onPracticeAnswer?.(key, exItems.length);
+      // Auto-complete when all correct
+      if (totalDone === exItems.length) {
+        onComplete?.();
+      }
+    }
   }
 
-  function retryEx() {
-    setAnswers({}); setSub(false); setScore(null);
-    setEx(p => [...p].sort(() => Math.random() - 0.5));
+  function retryWrong(item) {
+    const key = item.word || item.phrase;
+    setAnswers(p => { const n = { ...p }; delete n[key]; return n; });
+    setChecked(p => { const n = { ...p }; delete n[key]; return n; });
   }
 
-  const allAnswered = exItems.length > 0 && exItems.every(i => answers[i.word || i.phrase]);
+  const correctCount = Object.keys(correct).length;
+  const allCorrect = exItems.length > 0 && correctCount === exItems.length;
   const TABS = ["theory", "practice", "shadowing"];
   const TAB_LABELS = { theory: "Theory", practice: "Practice", shadowing: "Shadowing" };
 
@@ -237,12 +266,13 @@ export function LessonView({ def, onBack, completed, progress: lessonProgress, o
 
             {tab === "practice" && (
               <div>
-                <p className="text-sm text-gray-500 mb-4">{def.exerciseQuestion} · tap a word to hear it</p>
+                <p className="text-sm text-gray-500 mb-2">{def.exerciseQuestion} · tap a word to hear it</p>
+                <p className="font-mono text-xs text-gray-400 dark:text-gray-500 mb-4">{correctCount}/{exItems.length} correct</p>
 
-                {submitted && (
+                {allCorrect && (
                   <div className="card p-4 mb-5 text-center">
-                    <div className="text-3xl mb-1">{score}/{exItems.length}</div>
-                    <p className="text-sm text-gray-500">{score === exItems.length ? "perfect." : "review and retry."}</p>
+                    <div className="text-3xl mb-1">{correctCount}/{exItems.length}</div>
+                    <p className="text-sm text-gray-500">perfect.</p>
                   </div>
                 )}
 
@@ -251,44 +281,50 @@ export function LessonView({ def, onBack, completed, progress: lessonProgress, o
                     const isRewrite = def.exerciseType === "rewrite";
                     const key    = item.word || item.phrase;
                     const chosen = answers[key];
-                    const ok     = submitted && chosen === item.answer;
-                    const bad    = submitted && chosen && chosen !== item.answer;
+                    const isChecked = checked[key];
+                    const ok     = correct[key];
+                    const bad    = isChecked && !ok;
                     const opts   = isRewrite ? item.options : def.exerciseOptions;
 
                     return (
-                      <div key={idx} className={`card p-3 ${bad ? "!border-amber-600/30" : ""}`}>
+                      <div key={idx} className={`card p-3 transition-colors ${ok ? "opacity-60" : ""} ${bad ? "!border-amber-600/30" : ""}`}>
                         {isRewrite ? (
                           <>
                             <SpeakWord word={item.phrase} ipa={item.ipa} className="text-base inline-block mb-1">{item.phrase}</SpeakWord>
                             <p className="mono-muted mb-3">{item.ipa} · {item.syllables}</p>
-                            {submitted && !ok && <p className="text-sm text-gray-500 mb-2 flex items-center gap-1"><IconArrow size="sm" /> {item.answer}</p>}
+                            {bad && <p className="text-sm text-gray-500 mb-2 flex items-center gap-1"><IconArrow size="sm" /> {item.answer}</p>}
                             <div className="flex flex-col gap-1.5">
                               {opts.map(opt => {
                                 const sel   = chosen === opt;
-                                const right = submitted && opt === item.answer;
+                                const right = ok && opt === item.answer;
                                 return (
                                   <button key={opt}
-                                    onClick={() => !submitted && setAnswers(p => ({ ...p, [key]: opt }))}
-                                    className={`option-btn text-left ${submitted ? "!cursor-default" : ""}
-                                      ${right && submitted ? "option-correct" : sel ? "option-selected" : "option-default"}`}>
+                                    onClick={() => selectAnswer(item, opt)}
+                                    className={`option-btn text-left ${isChecked ? "!cursor-default" : ""}
+                                      ${right ? "option-correct" : sel ? "option-selected" : "option-default"}`}>
                                     {opt}
                                   </button>
                                 );
                               })}
                             </div>
+                            {bad && (
+                              <button className="btn btn-ghost btn-sm mt-2 gap-1" onClick={() => retryWrong(item)}>
+                                <IconRefresh size="sm" /> Try again
+                              </button>
+                            )}
                           </>
                         ) : (
                           <>
                             <div className="flex justify-between mb-2.5 items-start gap-2">
                               <div>
-                                <SpeakWord word={item.word} ipa={submitted ? item.ipa : undefined} className="text-[1.1rem] inline-block mb-0.5">
+                                <SpeakWord word={item.word} ipa={isChecked ? item.ipa : undefined} className="text-[1.1rem] inline-block mb-0.5">
                                   {item.highlight
                                     ? highlightWord(item.word, item.highlight)
                                     : item.answer ? highlightBySound(item.word, item.answer) : item.word}
                                 </SpeakWord>
-                                {submitted && <p className="mono-muted mt-1">{item.ipa} · {item.syllables}</p>}
+                                {isChecked && <p className="mono-muted mt-1">{item.ipa} · {item.syllables}</p>}
                               </div>
-                              {submitted && (
+                              {isChecked && (
                                 <span className={`font-mono text-sm shrink-0 flex items-center gap-0.5 ${ok ? "text-gray-500" : "text-amber-600"}`}>
                                   {ok ? <IconCheck size="sm" /> : <><IconClose size="sm" /> {item.answer}</>}
                                 </span>
@@ -299,14 +335,19 @@ export function LessonView({ def, onBack, completed, progress: lessonProgress, o
                                 const sel = chosen === opt;
                                 return (
                                   <button key={opt}
-                                    onClick={() => !submitted && setAnswers(p => ({ ...p, [key]: opt }))}
-                                    className={`option-btn-sm ${submitted ? "!cursor-default" : ""}
-                                      ${sel ? "option-selected" : "option-default"}`}>
+                                    onClick={() => selectAnswer(item, opt)}
+                                    className={`option-btn-sm ${isChecked ? "!cursor-default" : ""}
+                                      ${sel && ok ? "option-correct" : sel ? "option-selected" : "option-default"}`}>
                                     {opt}
                                   </button>
                                 );
                               })}
                             </div>
+                            {bad && (
+                              <button className="btn btn-ghost btn-sm mt-2 gap-1" onClick={() => retryWrong(item)}>
+                                <IconRefresh size="sm" /> Try again
+                              </button>
+                            )}
                           </>
                         )}
                       </div>
@@ -315,14 +356,7 @@ export function LessonView({ def, onBack, completed, progress: lessonProgress, o
                 </div>
 
                 <div className="flex gap-2 mt-4 flex-wrap">
-                  {!submitted
-                    ? <button className="btn btn-primary btn-full gap-1" onClick={submitEx} disabled={!allAnswered}>Check <IconArrow size="sm" /></button>
-                    : <>
-                        <button className="btn btn-default gap-1" onClick={retryEx}><IconRefresh size="sm" /> Retry</button>
-                        <button className="btn btn-ghost gap-1" onClick={load}><IconRefresh size="sm" /> New words</button>
-                        {score === exItems.length && <button className="btn btn-primary gap-1" onClick={onComplete}><IconCheck size="sm" /> Complete</button>}
-                      </>
-                  }
+                  <button className="btn btn-ghost gap-1" onClick={load}><IconRefresh size="sm" /> New words</button>
                 </div>
               </div>
             )}
