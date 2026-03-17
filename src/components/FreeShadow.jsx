@@ -153,7 +153,7 @@ export function FreeShadow({ onBack, darkToggle }) {
             </button>
             <div className="flex-1 min-w-0">
               <p className="text-sm sm:text-base truncate">Free Shadow</p>
-              {usedToday !== null && (
+              {usedToday !== null && dailyLimit !== Infinity && (
                 <p className="font-mono text-xs text-gray-400 dark:text-gray-500">
                   {dailyLimit - usedToday} generation{dailyLimit - usedToday !== 1 ? "s" : ""} left today
                 </p>
@@ -195,7 +195,7 @@ export function FreeShadow({ onBack, darkToggle }) {
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); generate(); } }}
                 placeholder={mode === "phrase" ? "Type any English phrase…" : "Type a topic (e.g. cooking, travel, job interviews)…"}
-                maxLength={250}
+                maxLength={1250}
                 rows={mode === "topic" ? 1 : 2}
                 className="flex-1 px-3 py-2.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-gray-400 dark:focus:border-gray-500 resize-none"
                 disabled={generating || !canGenerate}

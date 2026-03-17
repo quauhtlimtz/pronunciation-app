@@ -113,16 +113,7 @@ export async function getContent(lessonDef, { user, force = false } = {}) {
     return unseen.content;
   }
 
-  // Step 3: Check daily generation limit — if hit, fall back to any existing content
-  if (await hasGeneratedToday(lessonId, user.id)) {
-    const fallback = await fetchPublicContent(lessonId);
-    if (fallback) {
-      cacheSet(lessonId, fallback);
-      return fallback;
-    }
-  }
-
-  // Step 4: Generate via AI, save to pool, mark seen, cache
+  // Step 3: Generate via AI, save to pool, mark seen, cache
   const content = await fetchFromAPI(lessonDef);
   const contentId = await saveToPool(lessonId, content, user.id);
   await markSeen(user.id, contentId);

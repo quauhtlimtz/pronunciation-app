@@ -1,7 +1,7 @@
 import { supabase } from "./supabase";
 import { analyzePhrase, generateTopicPhrase } from "./api";
 
-const DAILY_LIMIT = parseInt(import.meta.env.VITE_FREE_SHADOW_DAILY_LIMIT || "1", 10);
+const DAILY_LIMIT = Infinity;
 const PAGE_SIZE = 20;
 
 // ─── Check daily limit ──────────────────────────────────────────────────────
