@@ -53,7 +53,7 @@ function PoolItem({ item, micStreamRef, expanded, onToggle }) {
 // ─── Main component ──────────────────────────────────────────────────────────
 
 export function FreeShadow({ onBack, darkToggle }) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [mode, setMode] = useState("phrase"); // "phrase" or "topic"
   const [input, setInput] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
@@ -83,13 +83,14 @@ export function FreeShadow({ onBack, darkToggle }) {
     micStreamRef.current = stream;
   }, []);
 
-  // Load daily usage + first page of pool
+  // Load daily usage + first page of pool (wait for auth to settle)
   useEffect(() => {
+    if (authLoading) return;
     if (user) {
       getGenerationsToday(user.id).then(setUsedToday).catch(e => console.error("getGenerationsToday:", e));
     }
     loadPool(0);
-  }, [user]);
+  }, [user, authLoading]);
 
   async function loadPool(p) {
     setLoadingPool(true);

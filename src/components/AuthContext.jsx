@@ -12,26 +12,28 @@ export function AuthProvider({ children }) {
     // 1. Check current session (also processes OAuth redirect hash)
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       const u = session?.user ?? null;
-      setUser(u);
       if (u) {
         await ensureProfile(u);
-        loadProgress(u.id).then(setProgress);
+        const prog = await loadProgress(u.id);
+        setProgress(prog);
         logActivity(u.id, "login");
       }
+      setUser(u); // Set user LAST so progress is ready when loading ends
     });
 
     // 2. Listen for future auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       const u = session?.user ?? null;
-      setUser(u);
       if (u && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")) {
         await ensureProfile(u);
-        loadProgress(u.id).then(setProgress);
+        const prog = await loadProgress(u.id);
+        setProgress(prog);
         if (event === "SIGNED_IN") logActivity(u.id, "login");
       }
       if (event === "SIGNED_OUT") {
         setProgress({});
       }
+      setUser(u);
     });
 
     return () => subscription.unsubscribe();
