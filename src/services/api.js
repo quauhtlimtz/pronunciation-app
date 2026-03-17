@@ -20,13 +20,12 @@ const PROVIDERS = {
     format: "openai",
   },
   gemini: {
-    url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`,
     model: "gemini-2.5-flash",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${import.meta.env.VITE_GEMINI_API_KEY}`,
     },
-    format: "openai",
+    format: "gemini",
   },
   anthropic: {
     url: "https://api.anthropic.com/v1/messages",
@@ -59,6 +58,18 @@ function buildOpenAIBody(provider, prompt) {
   };
 }
 
+function buildGeminiBody(provider, prompt) {
+  return {
+    system_instruction: { parts: [{ text: SYSTEM_MSG }] },
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: 8000,
+      thinkingConfig: { thinkingBudget: 0 },
+    },
+  };
+}
+
 function buildAnthropicBody(provider, prompt) {
   return {
     model: provider.model,
@@ -72,6 +83,13 @@ function buildAnthropicBody(provider, prompt) {
 
 function parseOpenAIResponse(data) {
   return data.choices?.[0]?.message?.content || "";
+}
+
+function parseGeminiResponse(data) {
+  const parts = data.candidates?.[0]?.content?.parts || [];
+  // Skip thinking parts, return only text parts
+  const textPart = parts.find(p => p.text !== undefined && !p.thought);
+  return textPart?.text || "";
 }
 
 function parseAnthropicResponse(data) {
@@ -132,18 +150,24 @@ async function callAPI(provider, body) {
   throw lastError;
 }
 
+function buildBody(provider, prompt) {
+  if (provider.format === "anthropic") return buildAnthropicBody(provider, prompt);
+  if (provider.format === "gemini") return buildGeminiBody(provider, prompt);
+  return buildOpenAIBody(provider, prompt);
+}
+
+function parseResponse(provider, data) {
+  if (provider.format === "anthropic") return parseAnthropicResponse(data);
+  if (provider.format === "gemini") return parseGeminiResponse(data);
+  return parseOpenAIResponse(data);
+}
+
 export async function fetchFromAPI(lessonDef) {
   const provider = PROVIDERS[ACTIVE_PROVIDER];
 
-  const body = provider.format === "anthropic"
-    ? buildAnthropicBody(provider, lessonDef.prompt)
-    : buildOpenAIBody(provider, lessonDef.prompt);
-
+  const body = buildBody(provider, lessonDef.prompt);
   const data = await callAPI(provider, body);
-
-  const text = provider.format === "anthropic"
-    ? parseAnthropicResponse(data)
-    : parseOpenAIResponse(data);
+  const text = parseResponse(provider, data);
 
   // Strip markdown fences, <think> blocks, and whitespace
   const clean = text
@@ -175,15 +199,9 @@ export async function analyzePhrase(phrase) {
   const provider = PROVIDERS[ACTIVE_PROVIDER];
   const prompt = ANALYZE_PROMPT + JSON.stringify(phrase);
 
-  const body = provider.format === "anthropic"
-    ? buildAnthropicBody(provider, prompt)
-    : buildOpenAIBody(provider, prompt);
-
+  const body = buildBody(provider, prompt);
   const data = await callAPI(provider, body);
-
-  const text = provider.format === "anthropic"
-    ? parseAnthropicResponse(data)
-    : parseOpenAIResponse(data);
+  const text = parseResponse(provider, data);
 
   const clean = text
     .replace(/<think>[\s\S]*?<\/think>/g, "")
@@ -211,15 +229,9 @@ export async function generateTopicPhrase(topic) {
   const provider = PROVIDERS[ACTIVE_PROVIDER];
   const prompt = TOPIC_PROMPT + JSON.stringify(topic);
 
-  const body = provider.format === "anthropic"
-    ? buildAnthropicBody(provider, prompt)
-    : buildOpenAIBody(provider, prompt);
-
+  const body = buildBody(provider, prompt);
   const data = await callAPI(provider, body);
-
-  const text = provider.format === "anthropic"
-    ? parseAnthropicResponse(data)
-    : parseOpenAIResponse(data);
+  const text = parseResponse(provider, data);
 
   const clean = text
     .replace(/<think>[\s\S]*?<\/think>/g, "")
