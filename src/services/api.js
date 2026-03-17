@@ -21,7 +21,7 @@ const PROVIDERS = {
   },
   gemini: {
     url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-    model: "gemini-2.0-flash",
+    model: "gemini-2.5-flash",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${import.meta.env.VITE_GEMINI_API_KEY}`,
