@@ -16,7 +16,7 @@ import {
 
 function PoolItem({ item, micStreamRef, expanded, onToggle }) {
   return (
-    <div className="card mb-2.5">
+    <div className="card mb-2.5" id={`phrase-${item.id}`}>
       <button
         className="w-full text-left px-4 py-3 flex items-start gap-3 cursor-pointer bg-transparent border-none"
         onClick={onToggle}
@@ -52,7 +52,7 @@ function PoolItem({ item, micStreamRef, expanded, onToggle }) {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export function FreeShadow({ onBack, darkToggle }) {
+export function FreeShadow({ onBack, darkToggle, initialPhraseId }) {
   const { user, loading: authLoading } = useAuth();
   const [mode, setMode] = useState("phrase"); // "phrase" or "topic"
   const [input, setInput] = useState("");
@@ -70,7 +70,7 @@ export function FreeShadow({ onBack, darkToggle }) {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingPool, setLoadingPool] = useState(false);
-  const [expandedId, setExpandedId] = useState(null);
+  const [expandedId, setExpandedId] = useState(initialPhraseId ? Number(initialPhraseId) : null);
 
   // Mic
   const [micDeviceId, setMicDeviceId] = useState("");
@@ -116,8 +116,14 @@ export function FreeShadow({ onBack, darkToggle }) {
     if (user) {
       getGenerationsToday(user.id).then(setUsedToday).catch(e => console.error("getGenerationsToday:", e));
     }
-    loadPool(0, user);
-  }, [user, authLoading, loadPool]);
+    loadPool(0, user).then(() => {
+      if (initialPhraseId) {
+        setTimeout(() => {
+          document.getElementById(`phrase-${initialPhraseId}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 100);
+      }
+    });
+  }, [user, authLoading, loadPool, initialPhraseId]);
 
   const canGenerate = user && usedToday !== null && usedToday < dailyLimit;
 
@@ -262,7 +268,12 @@ export function FreeShadow({ onBack, darkToggle }) {
                 item={item}
                 micStreamRef={micStreamRef}
                 expanded={expandedId === item.id}
-                onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
+                onToggle={() => {
+                  const next = expandedId === item.id ? null : item.id;
+                  setExpandedId(next);
+                  const url = next ? `?shadow&phrase=${next}` : "?shadow";
+                  window.history.replaceState(null, "", url);
+                }}
               />
             ))}
             {hasMore && (

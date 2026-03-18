@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { speak, stopSpeak } from "../services/tts";
 import { IconPlay, IconClose } from "./Icons";
 
-export function PhraseAnnotation({ tokens }) {
+export function PhraseAnnotation({ tokens, activeWordIndex = -1 }) {
   if (!tokens || tokens.length === 0) return null;
 
   const [selStart, setSelStart] = useState(null);
@@ -56,6 +56,7 @@ export function PhraseAnnotation({ tokens }) {
 
   const hasSelection = selStart !== null && selEnd !== null;
   const isInRange = (i) => hasSelection && i >= selStart && i <= selEnd;
+  const isKaraoke = activeWordIndex >= 0;
 
   return (
     <div className="pt-3 pb-1">
@@ -66,22 +67,29 @@ export function PhraseAnnotation({ tokens }) {
           const selected = isInRange(i);
           const isRangeStart = hasSelection && i === selStart;
           const isRangeEnd = hasSelection && i === selEnd;
+          const isActive = isKaraoke && i === activeWordIndex;
+          const isPast = isKaraoke && i < activeWordIndex;
 
           return (
             <span key={i} className="inline-flex items-baseline">
               <span
                 onClick={(e) => { e.stopPropagation(); handleTap(i); }}
-                className={`cursor-pointer select-none transition-all duration-150 rounded-sm px-0.5 -mx-0.5
-                  ${stressStyle[tok.s]}
-                  ${selected
+                className={`cursor-pointer select-none rounded-sm px-0.5 -mx-0.5
+                  ${isActive
+                    ? "bg-amber-400/40 dark:bg-amber-400/25 scale-105 transition-all duration-100"
+                    : isPast
+                    ? `${stressStyle[tok.s]} opacity-40 transition-opacity duration-300`
+                    : `${stressStyle[tok.s]} transition-all duration-150`}
+                  ${isActive ? "text-amber-900 dark:text-amber-300 text-lg font-semibold" : ""}
+                  ${!isKaraoke && selected
                     ? "bg-amber-200/50 dark:bg-amber-400/15"
-                    : "hover:bg-gray-200/50 dark:hover:bg-gray-700/30"}
+                    : !isKaraoke ? "hover:bg-gray-200/50 dark:hover:bg-gray-700/30" : ""}
                   ${isRangeStart && selStart !== selEnd ? "rounded-r-none pr-0" : ""}
                   ${isRangeEnd && selStart !== selEnd ? "rounded-l-none pl-0" : ""}
                   ${selected && !isRangeStart && !isRangeEnd ? "rounded-none px-0" : ""}
                   ${selected && selStart === selEnd ? "rounded-sm" : ""}`}
               >
-                {stressDot[tok.s]}
+                {!isActive && stressDot[tok.s]}
                 {tok.t}
               </span>
               {linked && (

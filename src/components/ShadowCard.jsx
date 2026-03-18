@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { speak, stopSpeak, getTtsUrl } from "../services/tts";
+import { speak, stopSpeak, getTtsUrl, speakKaraoke, stopKaraoke } from "../services/tts";
 import { useWavesurfer } from "@wavesurfer/react";
 import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram.esm.js";
 import { PhraseAnnotation } from "./PhraseAnnotation";
@@ -58,6 +58,7 @@ const STEPS = ["listen", "shadow", "compare"];
 export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef, savedDone, onRecordingChange }) {
   const [step, setStep]         = useState("listen");
   const [natPlay, setNatPlay]   = useState(false);
+  const [activeWord, setActiveWord] = useState(-1);
   const [rec, setRec]           = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [recUrl, setRecUrl]     = useState(null);
@@ -131,8 +132,15 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
 
   // ─── Audio playback ──────────────────────────────────────────────────
 
-  const playNat  = () => { setNatPlay(true);  speak(phrase, () => setNatPlay(false)); };
-  const stopNat  = () => { stopSpeak(); setNatPlay(false); };
+  const playNat = () => {
+    setNatPlay(true);
+    if (tokens?.length) {
+      speakKaraoke(phrase, tokens, setActiveWord, () => { setNatPlay(false); setActiveWord(-1); });
+    } else {
+      speak(phrase, () => setNatPlay(false));
+    }
+  };
+  const stopNat = () => { stopKaraoke(); stopSpeak(); setNatPlay(false); setActiveWord(-1); };
   const stopMine = () => {
     audioRef.current?.pause();
     setMyPlay(false);
@@ -293,8 +301,8 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
 
   function reset() {
     setStep("listen"); setRecUrl(null); setNatUrl(null); setRec(false); setNatPlay(false); setMyPlay(false);
-    setBothPlay(false); setRecDuration(0); setRecError(null); setRecReady(false);
-    stopSpeak(); natAudioRef.current?.pause(); audioRef.current?.pause();
+    setBothPlay(false); setRecDuration(0); setRecError(null); setRecReady(false); setActiveWord(-1);
+    stopKaraoke(); stopSpeak(); natAudioRef.current?.pause(); audioRef.current?.pause();
     if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
   }
 
@@ -307,13 +315,25 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             {tokens && tokens.length > 0
-              ? <PhraseAnnotation tokens={tokens} />
+              ? <PhraseAnnotation tokens={tokens} activeWordIndex={activeWord} />
               : <div className="text-base mb-1">{phrase}</div>
             }
+            {/* Inline play button — right next to the text */}
+            <div className="flex items-center gap-2 mt-2">
+              <button
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono cursor-pointer border-none transition-colors
+                  ${natPlay
+                    ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
+                    : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"}`}
+                onClick={natPlay ? stopNat : playNat}
+              >
+                {natPlay ? <><IconPause size="sm" /> playing</> : <><IconPlay size="sm" /> listen</>}
+              </button>
+              {(savedDone || recUrl) && <span className="text-gray-400 shrink-0"><IconCheck size="sm" /></span>}
+            </div>
             <div className="mono-muted mt-2">{ipa}</div>
             {note && <div className="mono-dim mt-1 leading-relaxed">{note}</div>}
           </div>
-          {(savedDone || recUrl) && <span className="text-gray-400 shrink-0 mt-1"><IconCheck size="sm" /></span>}
         </div>
       </div>
 
@@ -333,10 +353,9 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
       <div className="p-4">
         {step === "listen" && (
           <div className="flex flex-col items-center gap-3">
-            <button className={`circ ${natPlay ? "circ-on" : ""}`} onClick={natPlay ? stopNat : playNat}>
-              {natPlay ? <IconPause size="lg" /> : <IconPlay size="lg" />}
-            </button>
-            <p className="text-sm text-gray-500">{natPlay ? "playing…" : "tap to hear native speaker"}</p>
+            <p className="text-sm text-gray-500 text-center">
+              {natPlay ? "listen and follow the highlighted words" : "tap listen above, then shadow below"}
+            </p>
             <button
               className={`btn min-w-[12.5rem] gap-1 ${micReady ? "btn-primary" : "btn-default opacity-50 cursor-not-allowed"}`}
               onClick={() => micReady && setStep("shadow")}

@@ -93,3 +93,80 @@ export async function speak(text, onEnd, onFallback) {
 export function stopSpeak() {
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
 }
+
+// ─── Karaoke (estimated word timing from audio duration) ─────────────────
+
+let karaokeRafId = null;
+
+function estimateWordTimings(tokens, duration) {
+  // Weight each word by character count; punctuation adds pause
+  const weights = tokens.map(tok => {
+    const w = tok.t;
+    let weight = w.replace(/[.,!?;:'"]/g, "").length;
+    if (/[.!?]$/.test(w)) weight += 3;   // sentence-ending pause
+    else if (/[,;:]$/.test(w)) weight += 1.5; // mid-sentence pause
+    return Math.max(weight, 1);
+  });
+  const total = weights.reduce((a, b) => a + b, 0);
+  const timings = [];
+  let cursor = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    const dur = (weights[i] / total) * duration;
+    timings.push({ index: i, start: cursor, end: cursor + dur });
+    cursor += dur;
+  }
+  return timings;
+}
+
+export async function speakKaraoke(text, tokens, onWordIndex, onEnd) {
+  stopKaraoke();
+  try {
+    const url = await fetchTts(text);
+    const audio = new Audio(url);
+    currentAudio = audio;
+
+    const startTracking = () => {
+      const timings = estimateWordTimings(tokens, audio.duration);
+      const tick = () => {
+        if (!audio || audio.paused) return;
+        const t = audio.currentTime;
+        let idx = -1;
+        for (let i = timings.length - 1; i >= 0; i--) {
+          if (t >= timings[i].start) { idx = i; break; }
+        }
+        onWordIndex(idx);
+        karaokeRafId = requestAnimationFrame(tick);
+      };
+      karaokeRafId = requestAnimationFrame(tick);
+    };
+
+    audio.onloadedmetadata = startTracking;
+    // Safari sometimes fires loadedmetadata before we attach, so also check duration
+    if (audio.duration) startTracking();
+
+    audio.onended = () => {
+      cancelAnimationFrame(karaokeRafId);
+      karaokeRafId = null;
+      currentAudio = null;
+      onWordIndex(-1);
+      onEnd?.();
+    };
+
+    await audio.play();
+    return audio;
+  } catch (e) {
+    console.warn("Karaoke TTS error:", e.message);
+    // Fallback: try edge-tts
+    if (ttsMode === "el") {
+      ttsMode = "edge";
+      return speakKaraoke(text, tokens, onWordIndex, onEnd);
+    }
+    onEnd?.();
+    return null;
+  }
+}
+
+export function stopKaraoke() {
+  if (karaokeRafId) { cancelAnimationFrame(karaokeRafId); karaokeRafId = null; }
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+}

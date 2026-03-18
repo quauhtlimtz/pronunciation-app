@@ -13,7 +13,7 @@ import { TestRecorder } from "./TestRecorder";
 
 function getParams() {
   const p = new URLSearchParams(window.location.search);
-  return { lesson: p.get("lesson"), tab: p.get("tab"), admin: p.has("admin"), anatomy: p.has("anatomy"), shadow: p.has("shadow"), chart: p.has("chart"), test: p.has("test") };
+  return { lesson: p.get("lesson"), tab: p.get("tab"), admin: p.has("admin"), anatomy: p.has("anatomy"), shadow: p.has("shadow"), phrase: p.get("phrase"), chart: p.has("chart"), test: p.has("test") };
 }
 
 function setParams(lesson, tab) {
@@ -133,6 +133,7 @@ export default function App() {
       <FreeShadow
         onBack={goHome}
         darkToggle={<ThemeToggle dark={dark} setDark={setDark} />}
+        initialPhraseId={initial.phrase}
       />
     );
   }
