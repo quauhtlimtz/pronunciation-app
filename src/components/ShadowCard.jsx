@@ -59,6 +59,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
   const [step, setStep]         = useState("listen");
   const [natPlay, setNatPlay]   = useState(false);
   const [activeWord, setActiveWord] = useState(-1);
+  const [showIpa, setShowIpa]   = useState(false);
   const [rec, setRec]           = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [recUrl, setRecUrl]     = useState(null);
@@ -315,10 +316,10 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             {tokens && tokens.length > 0
-              ? <PhraseAnnotation tokens={tokens} activeWordIndex={activeWord} />
+              ? <PhraseAnnotation tokens={tokens} activeWordIndex={activeWord} ipa={ipa} showIpa={showIpa} />
               : <div className="text-base mb-1">{phrase}</div>
             }
-            {/* Inline play button — right next to the text */}
+            {/* Inline controls — play + IPA toggle */}
             <div className="flex items-center gap-2 mt-2">
               <button
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono cursor-pointer border-none transition-colors
@@ -329,9 +330,20 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
               >
                 {natPlay ? <><IconPause size="sm" /> playing</> : <><IconPlay size="sm" /> listen</>}
               </button>
+              {ipa && tokens?.length > 0 && (
+                <button
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono cursor-pointer border-none transition-colors
+                    ${showIpa
+                      ? "bg-gray-900 dark:bg-gray-100 text-white dark:text-black"
+                      : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"}`}
+                  onClick={() => setShowIpa(!showIpa)}
+                >
+                  IPA
+                </button>
+              )}
               {(savedDone || recUrl) && <span className="text-gray-400 shrink-0"><IconCheck size="sm" /></span>}
             </div>
-            <div className="mono-muted mt-2">{ipa}</div>
+            {!showIpa && <div className="mono-muted mt-2">{ipa}</div>}
             {note && <div className="mono-dim mt-1 leading-relaxed">{note}</div>}
           </div>
         </div>

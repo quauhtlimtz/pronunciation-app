@@ -1,13 +1,37 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { speak, stopSpeak } from "../services/tts";
 import { IconPlay, IconClose } from "./Icons";
 
-export function PhraseAnnotation({ tokens, activeWordIndex = -1 }) {
+// Split full IPA string into per-word chunks aligned to tokens
+function splitIpa(ipa, tokens) {
+  if (!ipa || !tokens?.length) return [];
+  // Split IPA by whitespace, stripping leading stress marks for matching
+  const ipaParts = ipa.replace(/^[ˈˌ'']+/, "").split(/\s+/);
+  // If counts match, direct map
+  if (ipaParts.length === tokens.length) return ipaParts;
+  // If more IPA parts than tokens, try to merge extras
+  // If fewer, pad with empty strings
+  const result = [];
+  let ipaIdx = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    if (ipaIdx < ipaParts.length) {
+      result.push(ipaParts[ipaIdx]);
+      ipaIdx++;
+    } else {
+      result.push("");
+    }
+  }
+  return result;
+}
+
+export function PhraseAnnotation({ tokens, activeWordIndex = -1, ipa, showIpa = false }) {
   if (!tokens || tokens.length === 0) return null;
 
   const [selStart, setSelStart] = useState(null);
   const [selEnd, setSelEnd] = useState(null);
   const [playing, setPlaying] = useState(false);
+
+  const ipaWords = useMemo(() => showIpa ? splitIpa(ipa, tokens) : [], [ipa, tokens, showIpa]);
 
   const speakRange = useCallback((from, to) => {
     stopSpeak();
@@ -60,7 +84,7 @@ export function PhraseAnnotation({ tokens, activeWordIndex = -1 }) {
 
   return (
     <div className="pt-3 pb-1">
-      <div className="flex flex-wrap items-baseline gap-x-1 gap-y-2">
+      <div className={`flex flex-wrap ${showIpa ? "items-end gap-x-1.5 gap-y-1" : "items-baseline gap-x-1 gap-y-2"}`}>
         {tokens.map((tok, i) => {
           const isLast = i === tokens.length - 1;
           const linked = tok.lk && !isLast;
@@ -69,17 +93,19 @@ export function PhraseAnnotation({ tokens, activeWordIndex = -1 }) {
           const isRangeEnd = hasSelection && i === selEnd;
           const isActive = isKaraoke && i === activeWordIndex;
           const isPast = isKaraoke && i < activeWordIndex;
+          const wordIpa = ipaWords[i];
 
           return (
-            <span key={i} className="inline-flex items-baseline">
+            <span key={i} className="inline-flex items-end">
               <span
                 onClick={(e) => { e.stopPropagation(); handleTap(i); }}
                 className={`cursor-pointer select-none rounded-sm px-0.5 -mx-0.5
+                  ${showIpa ? "flex flex-col items-center" : ""}
                   ${isActive
                     ? "bg-amber-400/40 dark:bg-amber-400/25 scale-105 transition-all duration-100"
                     : isPast
-                    ? `${stressStyle[tok.s]} opacity-40 transition-opacity duration-300`
-                    : `${stressStyle[tok.s]} transition-all duration-150`}
+                    ? `${!showIpa ? stressStyle[tok.s] : ""} opacity-40 transition-opacity duration-300`
+                    : `${!showIpa ? stressStyle[tok.s] : ""} transition-all duration-150`}
                   ${isActive ? "text-amber-900 dark:text-amber-300 text-lg font-semibold" : ""}
                   ${!isKaraoke && selected
                     ? "bg-amber-200/50 dark:bg-amber-400/15"
@@ -89,8 +115,15 @@ export function PhraseAnnotation({ tokens, activeWordIndex = -1 }) {
                   ${selected && !isRangeStart && !isRangeEnd ? "rounded-none px-0" : ""}
                   ${selected && selStart === selEnd ? "rounded-sm" : ""}`}
               >
-                {!isActive && stressDot[tok.s]}
-                {tok.t}
+                {showIpa && wordIpa && (
+                  <span className="font-mono text-[0.6rem] leading-tight text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                    {wordIpa}
+                  </span>
+                )}
+                <span className={showIpa ? stressStyle[tok.s] : ""}>
+                  {!isActive && stressDot[tok.s]}
+                  {tok.t}
+                </span>
               </span>
               {linked && (
                 <svg className="inline-block self-end -mx-1 mb-[0.1em]" width="16" height="8" viewBox="0 0 16 8">
