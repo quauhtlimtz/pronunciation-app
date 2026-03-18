@@ -170,6 +170,7 @@ export function stopKaraokeTracking() {
   if (karaokeRafId) { cancelAnimationFrame(karaokeRafId); karaokeRafId = null; }
 }
 
+
 export function stopKaraoke() {
   stopKaraokeTracking();
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }

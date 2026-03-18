@@ -116,12 +116,12 @@ export function PhraseAnnotation({ tokens, activeWordIndex = -1, ipa, showIpa = 
                   ${selected && selStart === selEnd ? "rounded-sm" : ""}`}
               >
                 {showIpa && wordIpa && (
-                  <span className="font-mono text-[0.6rem] leading-tight text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                  <span className="font-mono text-base leading-tight text-amber-700 dark:text-amber-400 whitespace-nowrap">
                     {wordIpa}
                   </span>
                 )}
-                <span className={showIpa ? stressStyle[tok.s] : ""}>
-                  {!isActive && stressDot[tok.s]}
+                <span className={showIpa ? "text-[0.65rem] text-gray-400 dark:text-gray-500 leading-tight" : stressStyle[tok.s]}>
+                  {!showIpa && !isActive && stressDot[tok.s]}
                   {tok.t}
                 </span>
               </span>

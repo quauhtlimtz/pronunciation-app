@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { speak, stopSpeak, getTtsUrl, speakKaraoke, stopKaraoke, stopKaraokeTracking } from "../services/tts";
+import { speak, stopSpeak, getTtsUrl, speakKaraoke, stopKaraoke } from "../services/tts";
 import { useWavesurfer } from "@wavesurfer/react";
 import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram.esm.js";
 import { PhraseAnnotation } from "./PhraseAnnotation";
@@ -136,7 +136,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
 
   const playNat = () => {
     setNatPlay(true);
-    if (karaokeOn && tokens?.length) {
+    if (tokens?.length) {
       speakKaraoke(phrase, tokens, setActiveWord, () => { setNatPlay(false); setActiveWord(-1); });
     } else {
       speak(phrase, () => setNatPlay(false));
@@ -317,7 +317,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             {tokens && tokens.length > 0
-              ? <PhraseAnnotation tokens={tokens} activeWordIndex={activeWord} ipa={ipa} showIpa={showIpa} />
+              ? <PhraseAnnotation tokens={tokens} activeWordIndex={(() => { const v = karaokeOn ? activeWord : -1; if (activeWord > 0) console.log('PhraseAnnotation activeWordIndex:', v, 'karaokeOn:', karaokeOn, 'activeWord:', activeWord); return v; })()} ipa={ipa} showIpa={showIpa} />
               : <div className="text-base mb-1">{phrase}</div>
             }
             {/* Inline controls — play + IPA toggle */}
@@ -337,7 +337,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
                     ${karaokeOn
                       ? "bg-gray-900 dark:bg-gray-100 text-white dark:text-black"
                       : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"}`}
-                  onClick={() => { setKaraokeOn(k => { if (k) stopKaraokeTracking(); return !k; }); setActiveWord(-1); }}
+                  onClick={() => { console.log('KARAOKE TOGGLE, activeWord:', activeWord); setKaraokeOn(k => !k); }}
                 >
                   karaoke
                 </button>
