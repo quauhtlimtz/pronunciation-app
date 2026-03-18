@@ -337,7 +337,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
                     ${karaokeOn
                       ? "bg-gray-900 dark:bg-gray-100 text-white dark:text-black"
                       : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"}`}
-                  onClick={() => setKaraokeOn(!karaokeOn)}
+                  onClick={() => { setKaraokeOn(k => !k); setActiveWord(-1); }}
                 >
                   karaoke
                 </button>

@@ -9,8 +9,18 @@ export function AuthProvider({ children }) {
   const [progress, setProgress] = useState({});
 
   useEffect(() => {
+    let settled = false;
+
+    // Safety timeout: never hang on "Loading…" forever (covers lock + network issues)
+    const timeout = setTimeout(() => {
+      if (!settled) { settled = true; setUser(null); }
+    }, 8000);
+
     // 1. Check current session (also processes OAuth redirect hash)
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (settled) return; // timeout already fired
+      settled = true;
+      clearTimeout(timeout);
       const u = session?.user ?? null;
       if (u) {
         await ensureProfile(u);
@@ -19,6 +29,8 @@ export function AuthProvider({ children }) {
         logActivity(u.id, "login");
       }
       setUser(u); // Set user LAST so progress is ready when loading ends
+    }).catch(() => {
+      if (!settled) { settled = true; clearTimeout(timeout); setUser(null); }
     });
 
     // 2. Listen for future auth changes
@@ -36,7 +48,7 @@ export function AuthProvider({ children }) {
       setUser(u);
     });
 
-    return () => subscription.unsubscribe();
+    return () => { subscription.unsubscribe(); clearTimeout(timeout); };
   }, []);
 
   async function completeLesson(lessonId, score) {
