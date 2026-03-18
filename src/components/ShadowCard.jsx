@@ -59,7 +59,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
   const [step, setStep]         = useState("listen");
   const [natPlay, setNatPlay]   = useState(false);
   const [activeWord, setActiveWord] = useState(-1);
-  const [showIpa, setShowIpa]   = useState(false);
+  const [ipaMode, setIpaMode]   = useState("off"); // "off" | "small" | "large"
   const [karaokeOn, setKaraokeOn] = useState(true);
   const [rec, setRec]           = useState(false);
   const [countdown, setCountdown] = useState(0);
@@ -317,7 +317,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             {tokens && tokens.length > 0
-              ? <PhraseAnnotation tokens={tokens} activeWordIndex={(() => { const v = karaokeOn ? activeWord : -1; if (activeWord > 0) console.log('PhraseAnnotation activeWordIndex:', v, 'karaokeOn:', karaokeOn, 'activeWord:', activeWord); return v; })()} ipa={ipa} showIpa={showIpa} />
+              ? <PhraseAnnotation tokens={tokens} activeWordIndex={(() => { const v = karaokeOn ? activeWord : -1; if (activeWord > 0) console.log('PhraseAnnotation activeWordIndex:', v, 'karaokeOn:', karaokeOn, 'activeWord:', activeWord); return v; })()} ipa={ipa} ipaMode={ipaMode} />
               : <div className="text-base mb-1">{phrase}</div>
             }
             {/* Inline controls — play + IPA toggle */}
@@ -345,17 +345,17 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
               {ipa && tokens?.length > 0 && (
                 <button
                   className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono cursor-pointer border-none transition-colors
-                    ${showIpa
+                    ${ipaMode !== "off"
                       ? "bg-gray-900 dark:bg-gray-100 text-white dark:text-black"
                       : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"}`}
-                  onClick={() => setShowIpa(!showIpa)}
+                  onClick={() => setIpaMode(m => m === "off" ? "small" : m === "small" ? "large" : "off")}
                 >
-                  IPA
+                  {ipaMode === "large" ? "IPA ↑" : ipaMode === "small" ? "IPA ↓" : "IPA"}
                 </button>
               )}
               {(savedDone || recUrl) && <span className="text-gray-400 shrink-0"><IconCheck size="sm" /></span>}
             </div>
-            {!showIpa && <div className="mono-muted mt-2">{ipa}</div>}
+            {ipaMode === "off" && <div className="mono-muted mt-2">{ipa}</div>}
             {note && <div className="mono-dim mt-1 leading-relaxed">{note}</div>}
           </div>
         </div>

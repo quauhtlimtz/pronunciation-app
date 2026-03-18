@@ -24,9 +24,11 @@ function splitIpa(ipa, tokens) {
   return result;
 }
 
-export function PhraseAnnotation({ tokens, activeWordIndex = -1, ipa, showIpa = false }) {
+export function PhraseAnnotation({ tokens, activeWordIndex = -1, ipa, ipaMode = "off" }) {
   if (!tokens || tokens.length === 0) return null;
 
+  const showIpa = ipaMode !== "off";
+  const ipaLarge = ipaMode === "large";
   const [selStart, setSelStart] = useState(null);
   const [selEnd, setSelEnd] = useState(null);
   const [playing, setPlaying] = useState(false);
@@ -116,11 +118,13 @@ export function PhraseAnnotation({ tokens, activeWordIndex = -1, ipa, showIpa = 
                   ${selected && selStart === selEnd ? "rounded-sm" : ""}`}
               >
                 {showIpa && wordIpa && (
-                  <span className="font-mono text-base leading-tight text-amber-700 dark:text-amber-400 whitespace-nowrap">
+                  <span className={`font-mono leading-tight whitespace-nowrap ${ipaLarge
+                    ? "text-base text-amber-700 dark:text-amber-400"
+                    : "text-[0.6rem] text-gray-400 dark:text-gray-500"}`}>
                     {wordIpa}
                   </span>
                 )}
-                <span className={showIpa ? "text-[0.65rem] text-gray-400 dark:text-gray-500 leading-tight" : stressStyle[tok.s]}>
+                <span className={ipaLarge ? "text-[0.65rem] text-gray-400 dark:text-gray-500 leading-tight" : stressStyle[tok.s]}>
                   {!showIpa && !isActive && stressDot[tok.s]}
                   {tok.t}
                 </span>
