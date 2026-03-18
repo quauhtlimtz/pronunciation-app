@@ -60,6 +60,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
   const [natPlay, setNatPlay]   = useState(false);
   const [activeWord, setActiveWord] = useState(-1);
   const [showIpa, setShowIpa]   = useState(false);
+  const [karaokeOn, setKaraokeOn] = useState(true);
   const [rec, setRec]           = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [recUrl, setRecUrl]     = useState(null);
@@ -135,7 +136,7 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
 
   const playNat = () => {
     setNatPlay(true);
-    if (tokens?.length) {
+    if (karaokeOn && tokens?.length) {
       speakKaraoke(phrase, tokens, setActiveWord, () => { setNatPlay(false); setActiveWord(-1); });
     } else {
       speak(phrase, () => setNatPlay(false));
@@ -330,6 +331,17 @@ export function ShadowCard({ phrase, ipa, syllables, note, tokens, micStreamRef,
               >
                 {natPlay ? <><IconPause size="sm" /> playing</> : <><IconPlay size="sm" /> listen</>}
               </button>
+              {tokens?.length > 0 && (
+                <button
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono cursor-pointer border-none transition-colors
+                    ${karaokeOn
+                      ? "bg-gray-900 dark:bg-gray-100 text-white dark:text-black"
+                      : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"}`}
+                  onClick={() => setKaraokeOn(!karaokeOn)}
+                >
+                  karaoke
+                </button>
+              )}
               {ipa && tokens?.length > 0 && (
                 <button
                   className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono cursor-pointer border-none transition-colors
