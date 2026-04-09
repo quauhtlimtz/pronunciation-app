@@ -81,6 +81,9 @@ export function LessonView({ def, onBack, completed, progress: lessonProgress, o
   const [answers, setAnswers] = useState({});     // { key: chosen option }
   const [checked, setChecked] = useState({});     // { key: true } — exercises that have been checked
   const [correct, setCorrect] = useState({});     // { key: true } — exercises answered correctly
+  const [ruleAnswers, setRuleAnswers] = useState({}); // vowel_rule step 1: { key: "1-vowel"|"2-vowel"|"exception" }
+  const [ruleChecked, setRuleChecked] = useState({}); // vowel_rule step 1 checked
+  const [ruleCorrect, setRuleCorrect] = useState({}); // vowel_rule step 1 correct
   const [exItems, setEx]      = useState([]);
   const [fromCache, setFromCache] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -146,7 +149,7 @@ export function LessonView({ def, onBack, completed, progress: lessonProgress, o
       const restoredCorrect = {};
       const restoredChecked = {};
       shuffled.forEach((item) => {
-        const key = item.word || item.phrase;
+        const key = item.words ? item.words.map(w => w.word).join("|") : item.sentence || item.word || item.phrase;
         if (savedPractice.includes(key)) {
           restoredAnswers[key] = item.answer;
           restoredCorrect[key] = true;
@@ -156,6 +159,9 @@ export function LessonView({ def, onBack, completed, progress: lessonProgress, o
       setAnswers(restoredAnswers);
       setCorrect(restoredCorrect);
       setChecked(restoredChecked);
+      setRuleAnswers({});
+      setRuleChecked({});
+      setRuleCorrect({});
       setFromCache(!force);
     } catch (e) { setError(e.message); }
     finally { clearInterval(timerRef.current); setLoading(false); }
@@ -166,25 +172,46 @@ export function LessonView({ def, onBack, completed, progress: lessonProgress, o
     return () => clearInterval(timerRef.current);
   }, [def.id]);
 
+  function itemKey(item) {
+    if (item.words) return item.words.map(w => w.word).join("|"); // odd_one_out
+    if (item.sentence) return item.sentence; // minimal_pair
+    return item.word || item.phrase;
+  }
+
   function selectAnswer(item, opt) {
-    const key = item.word || item.phrase;
+    const key = itemKey(item);
     if (correct[key] || checked[key]) return; // already locked
     setAnswers(p => ({ ...p, [key]: opt }));
     setChecked(p => ({ ...p, [key]: true }));
-    if (opt === item.answer) {
+    const isCorrect = def.exerciseType === "odd_one_out"
+      ? opt === item.oddIndex
+      : opt === item.answer;
+    if (isCorrect) {
       setCorrect(p => ({ ...p, [key]: true }));
-      // Save this correct answer
-      const totalDone = Object.keys(correct).length + 1; // +1 for this one
+      const totalDone = Object.keys(correct).length + 1;
       onPracticeAnswer?.(key, exItems.length);
-      // Auto-complete when all correct
-      if (totalDone === exItems.length) {
-        onComplete?.();
-      }
+      if (totalDone === exItems.length) onComplete?.();
     }
   }
 
+  function selectRule(item, rule) {
+    const key = itemKey(item);
+    if (ruleCorrect[key] || ruleChecked[key]) return;
+    setRuleAnswers(p => ({ ...p, [key]: rule }));
+    setRuleChecked(p => ({ ...p, [key]: true }));
+    if (rule === item.rule) {
+      setRuleCorrect(p => ({ ...p, [key]: true }));
+    }
+  }
+
+  function retryRule(item) {
+    const key = itemKey(item);
+    setRuleAnswers(p => { const n = { ...p }; delete n[key]; return n; });
+    setRuleChecked(p => { const n = { ...p }; delete n[key]; return n; });
+  }
+
   function retryWrong(item) {
-    const key = item.word || item.phrase;
+    const key = itemKey(item);
     setAnswers(p => { const n = { ...p }; delete n[key]; return n; });
     setChecked(p => { const n = { ...p }; delete n[key]; return n; });
   }
@@ -278,13 +305,176 @@ export function LessonView({ def, onBack, completed, progress: lessonProgress, o
 
                 <div className="flex flex-col gap-2">
                   {exItems.map((item, idx) => {
-                    const isRewrite = def.exerciseType === "rewrite";
-                    const key    = item.word || item.phrase;
+                    const type = def.exerciseType;
+                    const key    = itemKey(item);
                     const chosen = answers[key];
                     const isChecked = checked[key];
                     const ok     = correct[key];
                     const bad    = isChecked && !ok;
-                    const opts   = isRewrite ? item.options : def.exerciseOptions;
+
+                    if (type === "odd_one_out") {
+                      return (
+                        <div key={idx} className={`card p-3 transition-colors ${ok ? "opacity-60" : ""} ${bad ? "!border-amber-600/30" : ""}`}>
+                          <div className="flex justify-between items-start mb-2.5">
+                            <p className="text-xs text-gray-400 dark:text-gray-500">Which one sounds different?</p>
+                            {isChecked && (
+                              <span className={`font-mono text-sm shrink-0 flex items-center gap-0.5 ${ok ? "text-gray-500" : "text-amber-600"}`}>
+                                {ok ? <IconCheck size="sm" /> : <><IconClose size="sm" /> {item.words[item.oddIndex].word}</>}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            {item.words.map((w, wi) => {
+                              const sel = chosen === wi;
+                              const isOdd = wi === item.oddIndex;
+                              const right = ok && isOdd;
+                              return (
+                                <button key={wi}
+                                  onClick={() => selectAnswer(item, wi)}
+                                  className={`option-btn flex-1 text-center ${isChecked ? "!cursor-default" : ""}
+                                    ${right ? "option-correct" : sel && bad ? "option-selected" : "option-default"}`}>
+                                  <SpeakWord word={w.word} ipa={isChecked ? w.ipa : undefined} className="text-base">
+                                    {w.word}
+                                  </SpeakWord>
+                                  {isChecked && <p className="mono-muted text-[0.65rem] mt-1">{w.ipa}</p>}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {isChecked && (
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                              {item.words.filter((_, i) => i !== item.oddIndex).map(w => w.word).join(" & ")}: {item.sound} · {item.words[item.oddIndex].word}: {item.oddSound}
+                            </p>
+                          )}
+                          {bad && (
+                            <button className="btn btn-ghost btn-sm mt-2 gap-1" onClick={() => retryWrong(item)}>
+                              <IconRefresh size="sm" /> Try again
+                            </button>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    if (type === "vowel_rule") {
+                      const rKey = key;
+                      const rChosen = ruleAnswers[rKey];
+                      const rChecked = ruleChecked[rKey];
+                      const rOk = ruleCorrect[rKey];
+                      const rBad = rChecked && !rOk;
+                      const step2Ready = rOk; // only show IPA step after rule is correct
+                      return (
+                        <div key={idx} className={`card p-3 transition-colors ${ok ? "opacity-60" : ""} ${(bad || rBad) ? "!border-amber-600/30" : ""}`}>
+                          <div className="flex justify-between mb-2.5 items-start gap-2">
+                            <div>
+                              <SpeakWord word={item.word} ipa={(isChecked || rChecked) ? item.ipa : undefined} className="text-[1.1rem] inline-block mb-0.5">
+                                {item.highlight ? highlightWord(item.word, item.highlight) : item.word}
+                              </SpeakWord>
+                              {(isChecked || rChecked) && <p className="mono-muted mt-1">{item.ipa} · {item.syllables}</p>}
+                            </div>
+                            {ok && <span className="font-mono text-sm shrink-0 text-gray-500 flex items-center gap-0.5"><IconCheck size="sm" /></span>}
+                          </div>
+
+                          {/* Step 1: rule classification */}
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5">Step 1: Which rule?</p>
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                            {["1-vowel", "2-vowel", "exception"].map(r => {
+                              const sel = rChosen === r;
+                              return (
+                                <button key={r}
+                                  onClick={() => selectRule(item, r)}
+                                  className={`option-btn-sm ${rChecked ? "!cursor-default" : ""}
+                                    ${sel && rOk ? "option-correct" : sel && rBad ? "option-selected" : "option-default"}`}>
+                                  {r === "1-vowel" ? "1-vowel (short)" : r === "2-vowel" ? "2-vowel (long)" : "Exception"}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {rBad && (
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="font-mono text-sm text-amber-600 flex items-center gap-0.5"><IconClose size="sm" /> {item.rule === "1-vowel" ? "1-vowel (short)" : item.rule === "2-vowel" ? "2-vowel (long)" : "Exception"}</span>
+                              <button className="btn btn-ghost btn-sm gap-1" onClick={() => retryRule(item)}>
+                                <IconRefresh size="sm" /> Retry
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Step 2: IPA sound (only after rule is correct) */}
+                          {step2Ready && (
+                            <>
+                              <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5 mt-1">Step 2: What vowel sound?</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {def.exerciseOptions.map(opt => {
+                                  const sel = chosen === opt;
+                                  return (
+                                    <button key={opt}
+                                      onClick={() => selectAnswer(item, opt)}
+                                      className={`option-btn-sm ${isChecked ? "!cursor-default" : ""}
+                                        ${sel && ok ? "option-correct" : sel && bad ? "option-selected" : "option-default"}`}>
+                                      {opt}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              {bad && (
+                                <div className="flex items-center gap-2 mt-2">
+                                  <span className="font-mono text-sm text-amber-600 flex items-center gap-0.5"><IconClose size="sm" /> {item.answer}</span>
+                                  <button className="btn btn-ghost btn-sm gap-1" onClick={() => retryWrong(item)}>
+                                    <IconRefresh size="sm" /> Retry
+                                  </button>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    if (type === "minimal_pair") {
+                      return (
+                        <div key={idx} className={`card p-3 transition-colors ${ok ? "opacity-60" : ""} ${bad ? "!border-amber-600/30" : ""}`}>
+                          <div className="flex justify-between items-start mb-2.5">
+                            <div>
+                              <SpeakWord word={item.sentence} className="text-base inline-block mb-0.5">
+                                <span className="flex items-center gap-1.5">
+                                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.08"/></svg>
+                                  Listen & choose
+                                </span>
+                              </SpeakWord>
+                              {isChecked && <p className="mono-muted mt-1">{item.sentence}</p>}
+                            </div>
+                            {isChecked && (
+                              <span className={`font-mono text-sm shrink-0 flex items-center gap-0.5 ${ok ? "text-gray-500" : "text-amber-600"}`}>
+                                {ok ? <IconCheck size="sm" /> : <><IconClose size="sm" /> {item.answer}</>}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            {item.pair.map((word, wi) => {
+                              const sel = chosen === word;
+                              const right = ok && word === item.answer;
+                              return (
+                                <button key={wi}
+                                  onClick={() => selectAnswer(item, word)}
+                                  className={`option-btn flex-1 text-center py-3 ${isChecked ? "!cursor-default" : ""}
+                                    ${right ? "option-correct" : sel && bad ? "option-selected" : "option-default"}`}>
+                                  <span className="text-base">{word}</span>
+                                  {isChecked && <p className="mono-muted text-[0.65rem] mt-1">{item.pairIpa[wi]}</p>}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {bad && (
+                            <button className="btn btn-ghost btn-sm mt-2 gap-1" onClick={() => retryWrong(item)}>
+                              <IconRefresh size="sm" /> Try again
+                            </button>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    // Default: classify / rewrite
+                    const isRewrite = type === "rewrite";
+                    const opts = isRewrite ? item.options : def.exerciseOptions;
 
                     return (
                       <div key={idx} className={`card p-3 transition-colors ${ok ? "opacity-60" : ""} ${bad ? "!border-amber-600/30" : ""}`}>

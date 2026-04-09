@@ -478,4 +478,323 @@ CRITICAL token rules — follow these EXACTLY:
 - IMPORTANT: Most phrases should have at least 1-2 linked pairs (lk:true).
 Use everyday American English words. IPA must be accurate. Shadowing phrases should use past tense naturally.`,
   },
+
+  // ── SESSION: Apr 8, 2026 ──────────────────────────────────────────────────
+  {
+    id: "vowel-classification",
+    title: "Vowel Classification",
+    subtitle: "Front, Central, Back vowels & Diphthongs — the 15 American English vowel sounds",
+    session: "Apr 8, 2026",
+    exerciseType: "classify",
+    exerciseQuestion: "What vowel sound does the highlighted syllable make?",
+    exerciseOptions: ["/iː/", "/ɪ/", "/eɪ/", "/ɛ/", "/æ/", "/ɜːr/", "/ʌ/", "/ə/", "/uː/", "/ʊ/", "/oʊ/", "/ɔː/", "/ɑː/", "/aɪ/", "/aʊ/", "/ɔɪ/"],
+    prompt: `You are an American English pronunciation expert teaching non-native speakers.
+Generate practice content for the 15 American English vowel sounds, classified by tongue position:
+
+FRONT VOWELS:
+- /iː/ as in "see", "beat" (tense, high front)
+- /ɪ/ as in "sit", "bit" (lax, high front)
+- /eɪ/ as in "say", "late" (tense, mid front, diphthong)
+- /ɛ/ as in "bed", "let" (lax, mid front)
+- /æ/ as in "cat", "bad" (lax, low front)
+
+CENTRAL VOWELS:
+- /ɜːr/ as in "bird", "her" (stressed r-colored)
+- /ʌ/ as in "cup", "but" (stressed, mid central)
+- /ə/ as in "about", "sofa" (unstressed schwa)
+
+BACK VOWELS:
+- /uː/ as in "food", "moon" (tense, high back)
+- /ʊ/ as in "book", "put" (lax, high back)
+- /oʊ/ as in "go", "home" (tense, mid back, diphthong)
+- /ɔː/ as in "call", "law" (lax, low-mid back)
+- /ɑː/ as in "hot", "father" (low back)
+
+DIPHTHONGS:
+- /aɪ/ as in "my", "time"
+- /aʊ/ as in "now", "house"
+- /ɔɪ/ as in "boy", "coin"
+
+Respond ONLY with valid JSON (no markdown, no backticks):
+{
+  "theory": [
+    {"symbol": "/iː/", "name": "High front tense", "rule": "one sentence about when this sound occurs", "tip": "articulation tip", "examples": [
+      {"word": "...", "ipa": "/IPA/", "syllables": "SYL·la·bles"},
+      {"word": "...", "ipa": "/IPA/", "syllables": "..."},
+      {"word": "...", "ipa": "/IPA/", "syllables": "..."},
+      {"word": "...", "ipa": "/IPA/", "syllables": "..."}
+    ]},
+    ... repeat for all 15 vowel sounds plus the 3 diphthongs (18 total theory cards, grouped: front, central, back, diphthongs)
+  ],
+  "exercises": [
+    {"word": "...", "highlight": "ea", "ipa": "/IPA/", "syllables": "...", "answer": "/iː/"},
+    ... 18 exercises total, at least 1 per vowel sound. "highlight" = the vowel letter(s) in the stressed syllable that produce the sound.
+  ],
+  "shadowing": [
+    {"phrase":"...","ipa":"/IPA/","syllables":"...","note":"...","tokens":[{"t":"word","s":2,"lk":false},{"t":"word","s":0,"lk":true},{"t":"word","s":1,"lk":false}]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]}
+  ]
+}
+CRITICAL exercise "highlight" rules:
+- "highlight" = the exact vowel letter(s) in the stressed syllable that produce the target sound (case-insensitive match)
+- Must be a substring of the word. E.g. word "beach" highlight "ea", word "sit" highlight "i", word "about" highlight "a"
+- Use varied words with different spellings for the same sound
+
+CRITICAL token rules — follow these EXACTLY:
+- "t" = the word text
+- "s" = sentence-level stress: 2 = primary, 1 = secondary, 0 = unstressed (function words)
+- "lk" = true when this word's final consonant links phonetically to the next word's initial vowel
+- Each phrase MUST have a MIX of all 3 stress levels
+Use everyday American English words. IPA must be accurate.`,
+  },
+  {
+    id: "tense-lax-vowels",
+    title: "Tense vs Lax Vowels",
+    subtitle: "/iː/ vs /ɪ/, /eɪ/ vs /ɛ/, /uː/ vs /ʊ/ — the pairs that confuse learners",
+    session: "Apr 8, 2026",
+    exerciseType: "classify",
+    exerciseQuestion: "What vowel sound does the highlighted syllable make?",
+    exerciseOptions: ["/iː/", "/ɪ/", "/eɪ/", "/ɛ/", "/uː/", "/ʊ/", "/ɑː/", "/ʌ/", "/æ/", "/ɔː/"],
+    prompt: `You are an American English pronunciation expert teaching non-native speakers.
+Generate practice content focused on TENSE vs LAX vowel pairs — these are the most confusing contrasts for non-native speakers:
+
+PAIR 1: /iː/ (tense) vs /ɪ/ (lax) — "beat" vs "bit", "sleep" vs "slip", "feel" vs "fill"
+PAIR 2: /eɪ/ (tense) vs /ɛ/ (lax) — "late" vs "let", "main" vs "men", "taste" vs "test"
+PAIR 3: /uː/ (tense) vs /ʊ/ (lax) — "fool" vs "full", "pool" vs "pull", "Luke" vs "look"
+PAIR 4: /ɑː/ vs /ʌ/ — "hot" vs "hut", "cop" vs "cup", "lock" vs "luck"
+PAIR 5: /ɑː/ vs /æ/ — "cop" vs "cap", "hot" vs "hat", "dock" vs "dack"
+PAIR 6: /ʌ/ vs /ɔː/ — "cut" vs "caught", "luck" vs "lock"
+
+Respond ONLY with valid JSON (no markdown, no backticks):
+{
+  "theory": [
+    {"symbol": "/iː/ vs /ɪ/", "name": "Beat vs Bit", "rule": "Tense /iː/ is longer with a smile shape; lax /ɪ/ is shorter and more relaxed", "tip": "practical tip to distinguish them", "examples": [
+      {"word": "beat", "ipa": "/biːt/", "syllables": "beat"},
+      {"word": "bit", "ipa": "/bɪt/", "syllables": "bit"},
+      {"word": "...", "ipa": "/IPA/", "syllables": "..."},
+      {"word": "...", "ipa": "/IPA/", "syllables": "..."}
+    ]},
+    ... 6 theory cards, one per pair
+  ],
+  "exercises": [
+    {"word": "...", "highlight": "ee", "ipa": "/IPA/", "syllables": "...", "answer": "/iː/"},
+    ... 18 exercises total, 3 per pair (mixing tense and lax). "highlight" = vowel letters in stressed syllable.
+  ],
+  "shadowing": [
+    {"phrase":"...","ipa":"/IPA/","syllables":"...","note":"focus on tense/lax contrast","tokens":[{"t":"word","s":2,"lk":false},{"t":"word","s":0,"lk":true},{"t":"word","s":1,"lk":false}]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]}
+  ]
+}
+CRITICAL exercise "highlight" rules:
+- "highlight" = the exact vowel letter(s) in the stressed syllable
+- Use minimal pairs and near-minimal pairs to test the contrast
+- Mix words from all 6 pairs
+
+CRITICAL token rules — follow these EXACTLY:
+- "t" = the word text, "s" = stress (2=primary, 1=secondary, 0=unstressed), "lk" = linking to next word
+- Each phrase MUST have a MIX of all 3 stress levels
+Use everyday American English words. IPA must be accurate.`,
+  },
+  {
+    id: "vowel-rules",
+    title: "Vowel Rules",
+    subtitle: "1-vowel rule, 2-vowel rule & common exceptions",
+    session: "Apr 8, 2026",
+    exerciseType: "vowel_rule",
+    exerciseQuestion: "Classify the rule, then identify the vowel sound",
+    exerciseOptions: ["/iː/", "/ɪ/", "/eɪ/", "/ɛ/", "/æ/", "/aɪ/", "/oʊ/", "/ɑː/", "/ʌ/", "/uː/", "/ʊ/", "/ɔː/", "/juː/"],
+    prompt: `You are an American English pronunciation expert teaching non-native speakers.
+Generate practice content for the two fundamental vowel spelling rules and their exceptions:
+
+THE 1-VOWEL RULE (short/lax vowel):
+When a syllable has only ONE vowel letter and it is NOT at the end, it usually makes the SHORT (lax) sound:
+- A → /æ/ (cat, bad, map)
+- E → /ɛ/ (bed, let, red)
+- I → /ɪ/ (sit, big, pin)
+- O → /ɑː/ (hot, top, lot)
+- U → /ʌ/ (cup, but, run)
+
+THE 2-VOWEL RULE (long/tense vowel):
+When a syllable has TWO vowel letters (or ends in a vowel), the first vowel says its alphabet name:
+- A → /eɪ/ (make, rain, day)
+- E → /iː/ (see, meat, be)
+- I → /aɪ/ (mine, tie, hi)
+- O → /oʊ/ (bone, road, go)
+- U → /juː/ or /uː/ (cute, blue, tune)
+
+RELATIVE SOUNDS (alphabet name vs short sound):
+- Letter A: alphabet /eɪ/, short /æ/
+- Letter E: alphabet /iː/, short /ɛ/
+- Letter I: alphabet /aɪ/, short /ɪ/
+- Letter O: alphabet /oʊ/, short /ɑː/
+- Letter U: alphabet /juː/, short /ʌ/
+
+COMMON EXCEPTIONS (words that DON'T follow the rules):
+- said /sɛd/ (looks like 2-vowel but says /ɛ/)
+- does /dʌz/ (1 vowel but irregular)
+- go /ɡoʊ/ (1 vowel at end = long)
+- was /wʌz/, build /bɪld/, love /lʌv/, been /bɪn/
+- read (past) /rɛd/, again /əˈɡɛn/, water /ˈwɔːtər/
+- he /hiː/, she /ʃiː/, the /ðə/
+
+Respond ONLY with valid JSON (no markdown, no backticks):
+{
+  "theory": [
+    {"symbol": "1-Vowel Rule", "name": "Short/Lax Sound", "rule": "When a syllable has only one vowel and it's not at the end, the vowel makes its SHORT sound", "tip": "Think CVC pattern: consonant-vowel-consonant = short vowel", "examples": [
+      {"word": "cat", "ipa": "/kæt/", "syllables": "cat"},
+      {"word": "bed", "ipa": "/bɛd/", "syllables": "bed"},
+      {"word": "sit", "ipa": "/sɪt/", "syllables": "sit"},
+      {"word": "hot", "ipa": "/hɑːt/", "syllables": "hot"}
+    ]},
+    {"symbol": "2-Vowel Rule", "name": "Long/Tense Sound", "rule": "When a syllable has two vowels (or VCe pattern), the first vowel says its alphabet name", "tip": "...", "examples": [...]},
+    {"symbol": "Relative Sounds", "name": "Alphabet vs Short", "rule": "Each vowel letter has two main sounds: its alphabet name (long) and its short sound", "tip": "...", "examples": [...]},
+    {"symbol": "Exceptions", "name": "Common Irregulars", "rule": "Some very common words break both rules — these must be memorized", "tip": "...", "examples": [...]}
+  ],
+  "exercises": [
+    {"word": "...", "highlight": "a", "ipa": "/IPA/", "syllables": "...", "rule": "1-vowel", "answer": "/æ/"},
+    {"word": "...", "highlight": "ai", "ipa": "/IPA/", "syllables": "...", "rule": "2-vowel", "answer": "/eɪ/"},
+    {"word": "said", "highlight": "ai", "ipa": "/sɛd/", "syllables": "said", "rule": "exception", "answer": "/ɛ/"},
+    ... 18 exercises total: mix of 1-vowel (6), 2-vowel (6), and exception (6). IMPORTANT: include real exceptions!
+    Each exercise has: word, highlight (the vowel letters), ipa, syllables, rule ("1-vowel"|"2-vowel"|"exception"), answer (IPA sound)
+  ],
+  "shadowing": [
+    {"phrase":"...","ipa":"/IPA/","syllables":"...","note":"...","tokens":[{"t":"word","s":2,"lk":false},{"t":"word","s":0,"lk":true},{"t":"word","s":1,"lk":false}]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]}
+  ]
+}
+
+CRITICAL token rules — follow these EXACTLY:
+- "t" = the word text, "s" = stress (2=primary, 1=secondary, 0=unstressed), "lk" = linking to next word
+- Each phrase MUST have a MIX of all 3 stress levels
+Use everyday American English words. IPA must be accurate.`,
+  },
+  {
+    id: "vowel-exceptions-spelling",
+    title: "Vowel Exceptions & Spelling",
+    subtitle: "Tricky spelling patterns: oo, ou, igh, oCe, ould, ea, tion…",
+    session: "Apr 8, 2026",
+    exerciseType: "odd_one_out",
+    exerciseQuestion: "Which word has a different vowel sound?",
+    prompt: `You are an American English pronunciation expert teaching non-native speakers.
+Generate practice content for vowel EXCEPTIONS and tricky SPELLING PATTERNS:
+
+SPELLING PATTERNS TO COVER:
+A patterns:
+- "all", "alk", "alt" → /ɔː/ (all, call, wall, talk, walk, salt)
+- "-ation" → /eɪ/ (information, nation, investigation)
+
+E patterns:
+- "ea" sometimes → /ɛ/ instead of /iː/ (bread, head, dead, health, said)
+- "ie" sometimes → /iː/ (piece, retrieve, chief, believe)
+
+O patterns:
+- "oCe" sometimes → /ʌ/ not /oʊ/ (love, come, done, some, none)
+- "oo" → /uː/ (room, school, too) or /ʊ/ (foot, book, look, good)
+- "oi" → /ɔɪ/ (noise, coin, point, voice)
+- "ou"/"ow" → /aʊ/ (out, about, now, how, house, down)
+- "ould" → /ʊd/ (would, could, should)
+
+Vowels + GH:
+- "-igh" → /aɪ/ (high, fight, light, night, sight)
+- "-aught"/"-ought" → /ɔːt/ (caught, taught, bought, thought)
+- "-ough" → varies (though /oʊ/, through /uː/, rough /ʌf/, cough /ɔːf/)
+
+Respond ONLY with valid JSON (no markdown, no backticks):
+{
+  "theory": [
+    {"symbol": "ea → /ɛ/", "name": "Short EA", "rule": "In some common words, 'ea' makes /ɛ/ instead of the expected /iː/", "tip": "...", "examples": [
+      {"word": "bread", "ipa": "/brɛd/", "syllables": "bread"},
+      {"word": "head", "ipa": "/hɛd/", "syllables": "head"},
+      {"word": "dead", "ipa": "/dɛd/", "syllables": "dead"},
+      {"word": "health", "ipa": "/hɛlθ/", "syllables": "health"}
+    ]},
+    ... one theory card per spelling pattern group (about 10-12 cards)
+  ],
+  "exercises": [
+    {"words": [{"word": "man", "ipa": "/mæn/"}, {"word": "mane", "ipa": "/meɪn/"}, {"word": "main", "ipa": "/meɪn/"}], "oddIndex": 0, "sound": "/eɪ/", "oddSound": "/æ/"},
+    {"words": [{"word": "meet", "ipa": "/miːt/"}, {"word": "meat", "ipa": "/miːt/"}, {"word": "met", "ipa": "/mɛt/"}], "oddIndex": 2, "sound": "/iː/", "oddSound": "/ɛ/"},
+    ... 14 exercises total. Each has 3 words: 2 share the same vowel sound, 1 is different (the "odd one out").
+    "oddIndex" = index (0, 1, or 2) of the word with the different sound.
+    "sound" = the vowel sound shared by the 2 matching words.
+    "oddSound" = the vowel sound of the odd word.
+    Focus on the tricky spelling patterns above — words that LOOK similar but SOUND different, or LOOK different but SOUND the same.
+  ],
+  "shadowing": [
+    {"phrase":"...","ipa":"/IPA/","syllables":"...","note":"...","tokens":[{"t":"word","s":2,"lk":false},{"t":"word","s":0,"lk":true},{"t":"word","s":1,"lk":false}]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]}
+  ]
+}
+
+CRITICAL token rules — follow these EXACTLY:
+- "t" = the word text, "s" = stress (2=primary, 1=secondary, 0=unstressed), "lk" = linking to next word
+- Each phrase MUST have a MIX of all 3 stress levels
+Use everyday American English words. IPA must be accurate.`,
+  },
+  {
+    id: "vowel-minimal-pairs",
+    title: "Vowel Minimal Pairs",
+    subtitle: "Listen carefully — can you hear the difference?",
+    session: "Apr 8, 2026",
+    exerciseType: "minimal_pair",
+    exerciseQuestion: "Listen to the sentence. Which word do you hear?",
+    prompt: `You are an American English pronunciation expert teaching non-native speakers.
+Generate practice content for VOWEL MINIMAL PAIRS — pairs of words that differ by only one vowel sound.
+
+MINIMAL PAIR GROUPS TO COVER:
+- /iː/ vs /ɪ/: beat/bit, sleep/slip, feel/fill, heat/hit, sheep/ship, peak/pick
+- /eɪ/ vs /ɛ/: late/let, pain/pen, main/men, wait/wet, taste/test, mate/met
+- /æ/ vs /ɛ/: bad/bed, pan/pen, had/head, man/men, sand/send, sat/set
+- /ɑː/ vs /ʌ/: hot/hut, cop/cup, lock/luck, dock/duck, shot/shut, rob/rub
+- /uː/ vs /ʊ/: fool/full, pool/pull, Luke/look, suit/soot
+- /æ/ vs /ʌ/: bat/but, ran/run, cap/cup, cat/cut, match/much
+- /ɪ/ vs /ɛ/: sit/set, pin/pen, tin/ten, did/dead, knit/net, chick/check
+
+Respond ONLY with valid JSON (no markdown, no backticks):
+{
+  "theory": [
+    {"symbol": "/iː/ vs /ɪ/", "name": "Beat vs Bit", "rule": "These sounds differ in length and tongue tension — /iː/ is long and tense, /ɪ/ is short and lax", "tip": "For /iː/ spread your lips like smiling; for /ɪ/ relax your mouth more", "examples": [
+      {"word": "beat", "ipa": "/biːt/", "syllables": "beat"},
+      {"word": "bit", "ipa": "/bɪt/", "syllables": "bit"},
+      {"word": "sheep", "ipa": "/ʃiːp/", "syllables": "sheep"},
+      {"word": "ship", "ipa": "/ʃɪp/", "syllables": "ship"}
+    ]},
+    ... one theory card per minimal pair group (7 cards)
+  ],
+  "exercises": [
+    {"sentence": "I need to pick up the check.", "pair": ["check", "chick"], "pairIpa": ["/tʃɛk/", "/tʃɪk/"], "answer": "check"},
+    {"sentence": "Please hand me the pan.", "pair": ["pan", "pin"], "pairIpa": ["/pæn/", "/pɪn/"], "answer": "pan"},
+    ... 14 exercises total, 2 per minimal pair group.
+    "sentence" = a natural sentence containing one word from the pair.
+    "pair" = the two words (order can vary).
+    "pairIpa" = IPA for each word in the pair (same order as pair array).
+    "answer" = which word from the pair is actually in the sentence.
+    IMPORTANT: Mix which word from each pair is the correct answer — don't always use the first one.
+    Use natural, everyday sentences. The target word should fit naturally in context.
+  ],
+  "shadowing": [
+    {"phrase":"...","ipa":"/IPA/","syllables":"...","note":"focus on vowel contrast","tokens":[{"t":"word","s":2,"lk":false},{"t":"word","s":0,"lk":true},{"t":"word","s":1,"lk":false}]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]},
+    {"phrase":"...","ipa":"...","syllables":"...","note":"...","tokens":[...]}
+  ]
+}
+
+CRITICAL token rules — follow these EXACTLY:
+- "t" = the word text, "s" = stress (2=primary, 1=secondary, 0=unstressed), "lk" = linking to next word
+- Each phrase MUST have a MIX of all 3 stress levels
+Use everyday American English words. IPA must be accurate.`,
+  },
 ];
