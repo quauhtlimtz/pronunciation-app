@@ -161,6 +161,7 @@ export default function App() {
         onShadowingPhrase={(idx, total) => saveShadowingPhrase(active.id, idx, total)}
         darkToggle={<ThemeToggle dark={dark} setDark={setDark} />}
         user={user}
+        signIn={signIn}
         tab={currentTab}
         onTabChange={onTabChange}
       />

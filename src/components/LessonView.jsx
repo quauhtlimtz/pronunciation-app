@@ -73,7 +73,7 @@ function ConfirmDialog({ onConfirm, onCancel }) {
   );
 }
 
-export function LessonView({ def, onBack, completed, progress: lessonProgress, onComplete, onPracticeAnswer, onShadowingPhrase, darkToggle, tab = "theory", onTabChange, user }) {
+export function LessonView({ def, onBack, completed, progress: lessonProgress, onComplete, onPracticeAnswer, onShadowingPhrase, darkToggle, tab = "theory", onTabChange, user, signIn }) {
   const setTab = onTabChange || (() => {});
   const [content, setContent] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -257,8 +257,10 @@ export function LessonView({ def, onBack, completed, progress: lessonProgress, o
         {error && (
           <div className="text-amber-600 dark:text-amber-500 text-sm p-3.5 border border-amber-600/20 rounded mb-5 leading-relaxed">
             {error}
-            <br />
-            <button className="btn btn-default btn-sm mt-2.5" onClick={load}>Retry</button>
+            <div className="flex gap-2 mt-2.5">
+              <button className="btn btn-default btn-sm" onClick={load}>Retry</button>
+              {!user && signIn && <button className="btn btn-primary btn-sm" onClick={signIn}>Sign in with Google</button>}
+            </div>
           </div>
         )}
 
